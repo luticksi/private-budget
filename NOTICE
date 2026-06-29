@@ -1,0 +1,32 @@
+PrivateBudget
+Copyright (c) 2026 PrivateBudget
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See the LICENSE file for the full text.
+
+-------------------------------------------------------------------------------
+Trademark and branding (NOT covered by the AGPL)
+-------------------------------------------------------------------------------
+
+The AGPL-3.0 license grants you rights to the SOURCE CODE only. It does NOT
+grant any rights to the PrivateBudget name, brand, or identity.
+
+Specifically, the following are reserved and are not licensed to you:
+
+  - the name "PrivateBudget" (and confusingly similar names),
+  - the PrivateBudget logo and visual brand/design identity, and
+  - the domain privatebudget.org.
+
+If you fork, modify, or redeploy this software, you must:
+
+  - use a different name and your own branding,
+  - remove the PrivateBudget name and logo from your distribution, and
+  - not imply that your version is endorsed by, affiliated with, or is the
+    official PrivateBudget project or service.
+
+This follows the same model used by projects like Mozilla Firefox and
+WordPress: the code is open, but the brand is not. These restrictions exist to
+protect users of a privacy-focused product from being misled by impersonating
+clones, and do not restrict your AGPL rights to the code itself.
