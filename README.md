@@ -188,6 +188,21 @@ PrivateBudget is free and open source, funded by donations via
 Donorbox in a new tab rather than embedding it, so no third-party code ever runs
 inside the app and the strict no-network guarantee is never weakened.
 
+## Contributing
+
+Good-faith pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Reviews may be occasional. By contributing you agree to license your
+contribution under the AGPL-3.0. Please report security issues **privately**
+(see [SECURITY.md](SECURITY.md)) rather than in a public issue.
+
 ## License
 
-[MIT](LICENSE)
+PrivateBudget is licensed under the
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). It is fully open
+source and auditable — and the network-copyleft term means that if you run a
+**modified** version as a public service, you must make your modified source
+available to its users under the same license.
+
+The license covers the **source code only**. The PrivateBudget **name, logo, and
+domain are not licensed** (see [NOTICE](NOTICE)) — forks must use their own
+branding and must not imply affiliation with the official project.
