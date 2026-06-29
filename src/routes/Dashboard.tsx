@@ -52,7 +52,7 @@ export function Dashboard() {
       >
         <EmptyState>
           No data yet. Start by{' '}
-          <Link to="/import" className="font-medium text-sky-600 hover:underline">
+          <Link to="/import" className="font-medium text-sky-600 hover:underline dark:text-sky-400">
             importing a statement
           </Link>
           .
@@ -68,7 +68,7 @@ export function Dashboard() {
     >
       {latestMonth && (
         <>
-          <h2 className="mb-2 text-sm font-medium text-slate-500">{monthLabel(latestMonth)}</h2>
+          <h2 className="mb-2 text-sm font-medium text-slate-500 dark:text-slate-400">{monthLabel(latestMonth)}</h2>
           <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Card label="Spending" value={formatCents(monthTotals.spendCents, currency)} />
             <Card label="Income" value={formatCents(monthTotals.incomeCents, currency)} positive />
@@ -84,19 +84,19 @@ export function Dashboard() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">Top categories this month</h2>
-            <Link to="/reports" className="text-xs font-medium text-sky-600 hover:underline">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Top categories this month</h2>
+            <Link to="/reports" className="text-xs font-medium text-sky-600 hover:underline dark:text-sky-400">
               Full reports →
             </Link>
           </div>
           {topCategories.length === 0 ? (
             <EmptyState>No spending recorded for {latestMonth ? monthLabel(latestMonth) : 'this period'}.</EmptyState>
           ) : (
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
               {topCategories.map((c) => (
                 <li key={c.name} className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span className="text-slate-700">{c.name}</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="text-slate-700 dark:text-slate-300">{c.name}</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
                     {formatCents(c.amountCents, currency)}
                   </span>
                 </li>
@@ -106,13 +106,13 @@ export function Dashboard() {
         </div>
 
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-900">Recent imports</h2>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Recent imports</h2>
           {batches && batches.length > 0 ? (
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
               {batches.map((b) => (
                 <li key={b.id} className="px-4 py-3 text-sm">
-                  <div className="truncate font-medium text-slate-700">{b.fileName}</div>
-                  <div className="text-xs text-slate-400">
+                  <div className="truncate font-medium text-slate-700 dark:text-slate-300">{b.fileName}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500">
                     {b.addedCount} added
                     {b.duplicateCount > 0 && ` · ${b.duplicateCount} dup`} ·{' '}
                     {new Date(b.importedAt).toLocaleDateString()}
@@ -139,11 +139,15 @@ function Card({
   positive?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className={`text-2xl font-semibold ${positive ? 'text-emerald-600' : 'text-slate-900'}`}>
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div
+        className={`text-2xl font-semibold ${
+          positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+        }`}
+      >
         {value}
       </div>
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
     </div>
   )
 }

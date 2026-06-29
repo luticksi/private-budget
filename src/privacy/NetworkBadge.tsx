@@ -11,8 +11,8 @@ export function NetworkBadge() {
       to="/privacy"
       className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
         crossOrigin === 0
-          ? 'bg-emerald-50 text-emerald-700'
-          : 'bg-red-50 text-red-700'
+          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+          : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
       }`}
       title="Cross-origin requests this session (should always be 0)"
     >

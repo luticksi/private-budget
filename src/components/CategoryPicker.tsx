@@ -14,7 +14,7 @@ export function CategoryPicker({
 
   return (
     <select
-      className="max-w-[14rem] rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 focus:border-sky-500 focus:outline-none"
+      className="max-w-[14rem] rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
     >

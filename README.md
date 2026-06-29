@@ -80,6 +80,29 @@ this device**, in IndexedDB. That's the privacy guarantee — but it also means
   To reduce the chance the browser auto-evicts it when disk space is low, the app
   requests *persistent storage* on startup (you can see the status under
   **Settings → "Your data on this device"**).
+
+#### Persistent storage vs. best-effort storage
+
+By default, IndexedDB is **best-effort**: the browser *may* delete it
+automatically when the device runs low on disk space, without any warning. The
+app calls `navigator.storage.persist()` on startup to request **persistent**
+storage, which asks the browser to treat this site's data like an installed app
+and not evict it unless the user explicitly clears it.
+
+If your browser shows a permission popup and you **block** it — or if your
+browser grants or denies it silently (Chrome, for example, auto-grants it for
+installed PWAs and sites you've engaged with) — the fallback is plain
+best-effort IndexedDB. Your data is still there and fully readable; the only
+difference is the browser may eventually reclaim that storage under heavy disk
+pressure.
+
+> **Regardless of persistent-storage status, clearing your browser's "site
+> data" or "cookies and other site data" always erases IndexedDB.** Persistent
+> storage only protects against silent automatic eviction, not manual clears.
+
+The Settings page shows whether persistence is currently granted and lets you
+re-request it at any time. The answer to "is my data safe?" is always the
+same: **download a backup.**
 - **It can be erased** if you: clear your browser's **"cookies and other site
   data"** for the site (note: clearing *only* cached files does **not** remove it,
   but the "Clear browsing data" dialog usually clears both together), browse in

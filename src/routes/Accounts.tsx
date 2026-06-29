@@ -6,7 +6,7 @@ import { Page, EmptyState } from '../components/Page'
 
 const TYPES: AccountType[] = ['checking', 'savings', 'credit', 'cash', 'other']
 const inputCls =
-  'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none'
+  'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
 
 export function Accounts() {
   const accounts = useLiveQuery(() => db.accounts.orderBy('name').toArray(), [])
@@ -48,7 +48,7 @@ export function Accounts() {
     >
       <form
         onSubmit={addAccount}
-        className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
+        className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
       >
         <Field label="Name">
           <input
@@ -97,19 +97,19 @@ export function Accounts() {
       {!accounts?.length ? (
         <EmptyState>No accounts yet. Add one above to get started.</EmptyState>
       ) : (
-        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
           {accounts.map((a) => (
             <li key={a.id} className="flex items-center justify-between px-4 py-3">
               <div>
-                <div className="font-medium text-slate-900">{a.name}</div>
-                <div className="text-xs text-slate-500">
+                <div className="font-medium text-slate-900 dark:text-slate-100">{a.name}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   {a.type}
                   {a.institution ? ` · ${a.institution}` : ''} · {a.currency}
                 </div>
               </div>
               <button
                 onClick={() => remove(a.id!)}
-                className="text-sm font-medium text-red-600 hover:underline"
+                className="text-sm font-medium text-red-600 hover:underline dark:text-red-400"
               >
                 Delete
               </button>
@@ -124,7 +124,7 @@ export function Accounts() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-slate-500">{label}</span>
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
       {children}
     </label>
   )

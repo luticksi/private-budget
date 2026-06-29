@@ -5,8 +5,15 @@ import { installNetworkMonitor } from './privacy/networkMonitor'
 import { ensureSeeded } from './db/seed'
 import { ensureRulesSeeded } from './categorize/starterDictionary'
 import { requestPersistentStorage } from './storage/persist'
+import { initTheme } from './theme/theme'
+import { ThemeProvider } from './theme/ThemeProvider'
 import { router } from './router'
 import './index.css'
+
+// Apply the saved (or system) theme before the first paint. The strict CSP
+// (`script-src 'self'`) rules out an inline <script>, so this runs here as the
+// first thing the bundle does, which is early enough to avoid a theme flash.
+initTheme()
 
 // Install the network monitor before anything else runs so it can observe
 // every outbound request the app makes.
@@ -20,6 +27,8 @@ void ensureSeeded().then(ensureRulesSeeded)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
   </React.StrictMode>,
 )

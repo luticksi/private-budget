@@ -15,7 +15,7 @@ const Reports = lazy(() =>
   import('./routes/Reports').then((m) => ({ default: m.Reports })),
 )
 
-const loading = <div className="p-6 text-sm text-slate-400">Loading…</div>
+const loading = <div className="p-6 text-sm text-slate-400 dark:text-slate-500">Loading…</div>
 
 export const router = createBrowserRouter([
   {

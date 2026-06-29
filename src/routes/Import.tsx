@@ -13,7 +13,7 @@ import type { MappingConfig, RawTable } from '../import/types'
 import type { SignConvention } from '../db/schema'
 
 const selectCls =
-  'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none'
+  'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
 
 export function Import() {
   const accounts = useLiveQuery(() => db.accounts.orderBy('name').toArray(), [])
@@ -110,7 +110,7 @@ export function Import() {
       <Page title="Import a statement">
         <EmptyState>
           First,{' '}
-          <Link to="/accounts" className="font-medium text-sky-600 hover:underline">
+          <Link to="/accounts" className="font-medium text-sky-600 hover:underline dark:text-sky-400">
             add an account
           </Link>{' '}
           to import statements into.
@@ -127,7 +127,7 @@ export function Import() {
       description="Upload a CSV export from your bank or credit card. The file is read in your browser and never uploaded anywhere."
     >
       {result && (
-        <div className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
           Imported <strong>{result.added}</strong> transaction(s)
           {result.duplicates > 0 && <> · skipped {result.duplicates} duplicate(s)</>}.{' '}
           <Link to="/transactions" className="font-medium underline">
@@ -136,12 +136,12 @@ export function Import() {
         </div>
       )}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</div>
       )}
 
       {/* Step 1: account */}
-      <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
-        <span className="text-sm font-medium text-slate-700">Import into</span>
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Import into</span>
         <select
           className={selectCls}
           value={accountId ?? ''}
@@ -158,7 +158,7 @@ export function Import() {
 
       {/* Step 2: file */}
       <div
-        className="mb-4 rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center"
+        className="mb-4 rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
@@ -176,7 +176,7 @@ export function Import() {
             if (f) void onFile(f)
           }}
         />
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           {fileName ? (
             <>
               Selected: <strong>{fileName}</strong>
@@ -193,7 +193,7 @@ export function Import() {
           Choose CSV file…
         </button>
         {!accountId && (
-          <p className="mt-2 text-xs text-slate-400">Select an account first.</p>
+          <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">Select an account first.</p>
         )}
       </div>
 
@@ -201,13 +201,13 @@ export function Import() {
       {table && config && (
         <div className="space-y-4">
           {profileNote && (
-            <div className="rounded-lg bg-sky-50 px-4 py-2 text-sm text-sky-800">
+            <div className="rounded-lg bg-sky-50 px-4 py-2 text-sm text-sky-800 dark:bg-sky-950 dark:text-sky-300">
               {profileNote}
             </div>
           )}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
               Map the columns
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -308,32 +308,34 @@ export function Import() {
 
           {/* Preview */}
           {mapped && (
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Preview — {mapped.transactions.length} transaction(s) ready
                 {mapped.skipped > 0 && (
-                  <span className="font-normal text-slate-500">
+                  <span className="font-normal text-slate-500 dark:text-slate-400">
                     {' '}
                     · {mapped.skipped} row(s) skipped (unparseable date/amount)
                   </span>
                 )}
               </h2>
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-slate-400">
+                <thead className="text-left text-xs uppercase text-slate-400 dark:text-slate-500">
                   <tr>
                     <th className="py-1 font-medium">Date</th>
                     <th className="py-1 font-medium">Description</th>
                     <th className="py-1 text-right font-medium">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {mapped.transactions.slice(0, 8).map((t, i) => (
                     <tr key={i}>
-                      <td className="py-1 text-slate-500">{t.date}</td>
+                      <td className="py-1 text-slate-500 dark:text-slate-400">{t.date}</td>
                       <td className="py-1">{t.rawDescription}</td>
                       <td
                         className={`py-1 text-right ${
-                          t.amountCents < 0 ? 'text-slate-900' : 'text-emerald-600'
+                          t.amountCents < 0
+                            ? 'text-slate-900 dark:text-slate-100'
+                            : 'text-emerald-600 dark:text-emerald-400'
                         }`}
                       >
                         {formatCents(t.amountCents, account?.currency ?? 'USD')}
@@ -346,9 +348,9 @@ export function Import() {
           )}
 
           {/* Save profile + import */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             {profileId == null ? (
-              <label className="flex items-center gap-2 text-sm text-slate-600">
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 Save these settings as a profile:
                 <input
                   className={selectCls}
@@ -358,7 +360,7 @@ export function Import() {
                 />
               </label>
             ) : (
-              <span className="text-sm text-slate-500">Using a saved profile.</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">Using a saved profile.</span>
             )}
             <button
               onClick={onImport}
@@ -377,7 +379,7 @@ export function Import() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-slate-500">{label}</span>
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
       {children}
     </label>
   )

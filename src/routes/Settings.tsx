@@ -98,12 +98,12 @@ export function Settings() {
     >
       <div className="space-y-4">
         {status && (
-          <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
             {status}
           </div>
         )}
         {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</div>
         )}
 
         <Card
@@ -111,17 +111,23 @@ export function Settings() {
           body="Everything is stored in this browser only — it isn't synced to other devices or browsers, and clearing your browser's site data will erase it. Keep a backup. The app asks your browser to keep this data and avoid auto-evicting it."
         >
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="text-slate-600">
+            <span className="text-slate-600 dark:text-slate-300">
               Persistent storage:{' '}
-              <strong className={persisted ? 'text-emerald-600' : 'text-amber-600'}>
+              <strong
+                className={
+                  persisted
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-amber-600 dark:text-amber-400'
+                }
+              >
                 {persisted == null ? '…' : persisted ? 'on' : 'off'}
               </strong>
             </span>
-            {usage && <span className="text-slate-500">Using {usage}</span>}
+            {usage && <span className="text-slate-500 dark:text-slate-400">Using {usage}</span>}
             {persisted === false && (
               <button
                 onClick={onRequestPersist}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Request persistent storage
               </button>
@@ -136,13 +142,13 @@ export function Settings() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={onRecategorize}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Re-apply categorization rules
             </button>
             <button
               onClick={onDetectTransfers}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Detect transfers
             </button>
@@ -189,7 +195,7 @@ export function Settings() {
         >
           <button
             onClick={onWipe}
-            className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
           >
             Erase all data
           </button>
@@ -209,9 +215,9 @@ function Card({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">{title}</h2>
-      <p className="mb-3 mt-1 text-sm text-slate-500">{body}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+      <p className="mb-3 mt-1 text-sm text-slate-500 dark:text-slate-400">{body}</p>
       {children}
     </div>
   )

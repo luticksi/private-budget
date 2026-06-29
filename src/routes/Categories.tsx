@@ -7,7 +7,7 @@ import { CategoryPicker } from '../components/CategoryPicker'
 import { useCategoryGroups, useCategoryMap, categoryPath } from '../categorize/useCategories'
 
 const inputCls =
-  'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none'
+  'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
 
 export function Categories() {
   return (
@@ -62,7 +62,7 @@ function RulesSection() {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">Rules</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Rules</h2>
         <input
           className={`${inputCls} w-56`}
           placeholder="Filter rules…"
@@ -73,7 +73,7 @@ function RulesSection() {
 
       <form
         onSubmit={addRule}
-        className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-4"
+        className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
       >
         <input
           className={`${inputCls} flex-1`}
@@ -100,9 +100,9 @@ function RulesSection() {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2 font-medium">Pattern</th>
               <th className="px-4 py-2 font-medium">Match</th>
@@ -111,29 +111,29 @@ function RulesSection() {
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {filtered.slice(0, 300).map((r) => (
               <tr key={r.id} className={r.enabled ? '' : 'opacity-40'}>
                 <td className="px-4 py-2 font-mono text-xs">{r.pattern}</td>
-                <td className="px-4 py-2 text-slate-500">
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
                   {r.match} · {r.field === 'rawDescription' ? 'desc' : 'merchant'}
                 </td>
                 <td className="px-4 py-2">{categoryPath(map, r.categoryId)}</td>
                 <td className="px-4 py-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {r.source}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right">
                   <button
                     onClick={() => db.rules.update(r.id!, { enabled: !r.enabled })}
-                    className="mr-3 text-xs font-medium text-slate-500 hover:underline"
+                    className="mr-3 text-xs font-medium text-slate-500 hover:underline dark:text-slate-400"
                   >
                     {r.enabled ? 'Disable' : 'Enable'}
                   </button>
                   <button
                     onClick={() => db.rules.delete(r.id!)}
-                    className="text-xs font-medium text-red-600 hover:underline"
+                    className="text-xs font-medium text-red-600 hover:underline dark:text-red-400"
                   >
                     Delete
                   </button>
@@ -143,7 +143,7 @@ function RulesSection() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-slate-400">
+      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
         {filtered.length} rule(s){search ? ' matching filter' : ''}.
       </p>
     </section>
@@ -182,7 +182,7 @@ function CategoryTreeSection() {
 
   return (
     <section>
-      <h2 className="mb-3 text-lg font-semibold text-slate-900">Categories</h2>
+      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Categories</h2>
       <form onSubmit={addParent} className="mb-4 flex gap-2">
         <input
           className={`${inputCls} w-64`}
@@ -190,30 +190,30 @@ function CategoryTreeSection() {
           value={newParent}
           onChange={(e) => setNewParent(e.target.value)}
         />
-        <button className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <button className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
           Add
         </button>
       </form>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {groups.map(({ parent, children }) => (
-          <div key={parent.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <div key={parent.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">
                 {parent.name}
                 {parent.isSystem && (
-                  <span className="ml-2 text-xs font-normal text-slate-400">system</span>
+                  <span className="ml-2 text-xs font-normal text-slate-400 dark:text-slate-500">system</span>
                 )}
               </h3>
             </div>
             <ul className="space-y-1">
               {children.map((c) => (
                 <li key={c.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">{c.name}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{c.name}</span>
                   {!c.isSystem && (
                     <button
                       onClick={() => removeCategory(c.id!)}
-                      className="text-xs text-red-500 hover:underline"
+                      className="text-xs text-red-500 hover:underline dark:text-red-400"
                     >
                       delete
                     </button>
@@ -246,7 +246,7 @@ function AddChild({ onAdd }: { onAdd: (name: string) => void }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <button className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
+      <button className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
         Add
       </button>
     </form>
