@@ -24,6 +24,10 @@ export function Dashboard() {
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
   const categoryMap = useCategoryMap()
   const currency = accounts?.[0]?.currency ?? 'USD'
+  const creditAccountIds = useMemo(
+    () => new Set((accounts ?? []).filter((a) => a.type === 'credit').map((a) => a.id!)),
+    [accounts],
+  )
 
   const latestMonth = useMemo(() => {
     if (!allTx?.length) return null
@@ -38,10 +42,13 @@ export function Dashboard() {
     [allTx, latestMonth],
   )
 
-  const monthTotals = useMemo(() => totals(monthTx), [monthTx])
+  const monthTotals = useMemo(
+    () => totals(monthTx, categoryMap, creditAccountIds),
+    [monthTx, categoryMap, creditAccountIds],
+  )
   const topCategories = useMemo(
-    () => spendingByCategory(monthTx, categoryMap).tree.slice(0, 5),
-    [monthTx, categoryMap],
+    () => spendingByCategory(monthTx, categoryMap, creditAccountIds).tree.slice(0, 5),
+    [monthTx, categoryMap, creditAccountIds],
   )
 
   if (allTx && allTx.length === 0) {

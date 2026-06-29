@@ -3,9 +3,11 @@ import { spendingByCategory, monthlyTrend, topMerchants, totals } from './aggreg
 import type { Category, Transaction } from '../db/schema'
 
 const categories = new Map<number, Category>([
-  [1, { id: 1, name: 'Food & Dining', parentId: null, isSystem: false }],
-  [2, { id: 2, name: 'Coffee Shops', parentId: 1, isSystem: false }],
-  [3, { id: 3, name: 'Groceries', parentId: 1, isSystem: false }],
+  [1, { id: 1, name: 'Food & Dining', parentId: null, kind: 'expense', isSystem: false }],
+  [2, { id: 2, name: 'Coffee Shops', parentId: 1, kind: 'expense', isSystem: false }],
+  [3, { id: 3, name: 'Groceries', parentId: 1, kind: 'expense', isSystem: false }],
+  [10, { id: 10, name: 'Salary', parentId: null, kind: 'income', isSystem: false }],
+  [20, { id: 20, name: 'Credit Card Payment', parentId: null, kind: 'transfer', isSystem: true }],
 ])
 
 function tx(over: Partial<Transaction>): Transaction {
@@ -57,13 +59,43 @@ describe('spendingByCategory', () => {
   })
 })
 
+describe('credit-card payments and income recognition', () => {
+  it('does not count a positive amount on a credit account as income', () => {
+    const creditAccountIds = new Set([2])
+    const txs = [
+      // A credit-card payment lands as a positive (inflow) amount on the card.
+      tx({ accountId: 2, amountCents: 174644, categoryId: null }),
+      // A genuine bank deposit on a checking account.
+      tx({ accountId: 1, amountCents: 5000, categoryId: null }),
+    ]
+    expect(totals(txs, categories, creditAccountIds)).toEqual({
+      spendCents: 0,
+      incomeCents: 5000,
+      netCents: 5000,
+    })
+  })
+
+  it('excludes a transfer-kind category from income even on a bank account', () => {
+    const txs = [tx({ accountId: 1, amountCents: 174644, categoryId: 20 })]
+    expect(totals(txs, categories).incomeCents).toBe(0)
+  })
+
+  it('counts an income-kind category as income when the user assigns it', () => {
+    const txs = [tx({ accountId: 1, amountCents: 250000, categoryId: 10 })]
+    expect(totals(txs, categories).incomeCents).toBe(250000)
+  })
+})
+
 describe('monthlyTrend', () => {
   it('aggregates income and expense per month', () => {
-    const points = monthlyTrend([
-      tx({ date: '2024-01-05', amountCents: -1000 }),
-      tx({ date: '2024-01-20', amountCents: 5000 }),
-      tx({ date: '2024-02-10', amountCents: -2000 }),
-    ])
+    const points = monthlyTrend(
+      [
+        tx({ date: '2024-01-05', amountCents: -1000 }),
+        tx({ date: '2024-01-20', amountCents: 5000, categoryId: null }),
+        tx({ date: '2024-02-10', amountCents: -2000 }),
+      ],
+      categories,
+    )
     expect(points).toHaveLength(2)
     expect(points[0]).toMatchObject({ month: '2024-01', expenseCents: 1000, incomeCents: 5000, netCents: 4000 })
     expect(points[1]).toMatchObject({ month: '2024-02', expenseCents: 2000 })
@@ -78,11 +110,11 @@ describe('topMerchants & totals', () => {
     tx({ amountCents: 3000, categoryId: null }),
   ]
   it('ranks merchants by spend', () => {
-    const top = topMerchants(txs)
+    const top = topMerchants(txs, categories)
     expect(top[0]).toEqual({ merchant: 'B', amountCents: 2000, count: 1 })
     expect(top[1]).toEqual({ merchant: 'A', amountCents: 1500, count: 2 })
   })
   it('computes totals', () => {
-    expect(totals(txs)).toEqual({ spendCents: 3500, incomeCents: 3000, netCents: -500 })
+    expect(totals(txs, categories)).toEqual({ spendCents: 3500, incomeCents: 3000, netCents: -500 })
   })
 })

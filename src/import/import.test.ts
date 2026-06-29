@@ -127,6 +127,39 @@ describe('detectMapping', () => {
     expect(config.columnMap.credit).toBe('Credit')
     expect(config.columnMap.description).toBe('Memo')
   })
+
+  // The Amex "basic" export: a numeric "Account #" column sits next to "Amount".
+  const amex: RawTable = {
+    headers: ['Date', 'Description', 'Card Member', 'Account #', 'Amount'],
+    rows: [
+      ['06/26/2026', 'RACEWAY 6821 MOODY AL', 'JARED G MOORE', '-41004', '34.21'],
+      ['06/25/2026', 'CVS PHARMACY MOODY AL', 'SARA K MOORE', '-42010', '67.36'],
+      ['06/24/2026', 'AUTOPAY PAYMENT - THANK YOU', 'JARED G MOORE', '-41004', '-1746.44'],
+    ],
+    delimiter: ',',
+    hasHeader: true,
+  }
+
+  it('does not mistake an integer "Account #" column for an amount column', () => {
+    const config = detectMapping(amex)
+    // Single amount column, not a false debit/credit split off "Account #".
+    expect(config.signConvention).not.toBe('separateColumns')
+    expect(config.columnMap.amount).toBe('Amount')
+    expect(config.columnMap.debit).toBeUndefined()
+    expect(config.columnMap.date).toBe('Date')
+    expect(config.columnMap.description).toBe('Description')
+    expect(config.dateFormat).toBe('MM/DD/YYYY')
+  })
+
+  it('defaults a credit-card account to positive-is-outflow', () => {
+    expect(detectMapping(amex, { accountType: 'credit' }).signConvention).toBe(
+      'positiveIsOutflow',
+    )
+    // A non-credit account keeps the negative-is-outflow default.
+    expect(detectMapping(amex, { accountType: 'checking' }).signConvention).toBe(
+      'negativeIsOutflow',
+    )
+  })
 })
 
 describe('computeDedupHash', () => {

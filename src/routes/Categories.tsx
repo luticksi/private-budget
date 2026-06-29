@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import type { RuleField, RuleMatch } from '../db/schema'
+import type { Category, CategoryKind, RuleField, RuleMatch } from '../db/schema'
 import { Page } from '../components/Page'
 import { CategoryPicker } from '../components/CategoryPicker'
 import { useCategoryGroups, useCategoryMap, categoryPath } from '../categorize/useCategories'
@@ -154,16 +154,24 @@ function CategoryTreeSection() {
   const groups = useCategoryGroups()
   const [newParent, setNewParent] = useState('')
 
-  async function addChild(parentId: number, name: string) {
+  async function addChild(parent: Category, name: string) {
     if (!name.trim()) return
-    await db.categories.add({ name: name.trim(), parentId, isSystem: false })
+    // Children inherit their parent's kind so a whole group stays consistent.
+    await db.categories.add({ name: name.trim(), parentId: parent.id!, kind: parent.kind, isSystem: false })
   }
 
   async function addParent(e: FormEvent) {
     e.preventDefault()
     if (!newParent.trim()) return
-    await db.categories.add({ name: newParent.trim(), parentId: null, isSystem: false })
+    await db.categories.add({ name: newParent.trim(), parentId: null, kind: 'expense', isSystem: false })
     setNewParent('')
+  }
+
+  // Setting a top-level category's kind applies to its children too, so reports
+  // treat the group consistently (income, spending, or excluded transfers).
+  async function setGroupKind(parent: Category, children: Category[], kind: CategoryKind) {
+    const ids = [parent.id!, ...children.map((c) => c.id!)]
+    await db.categories.where('id').anyOf(ids).modify({ kind })
   }
 
   async function removeCategory(id: number) {
@@ -205,6 +213,18 @@ function CategoryTreeSection() {
                   <span className="ml-2 text-xs font-normal text-slate-400 dark:text-slate-500">system</span>
                 )}
               </h3>
+              <label className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                counts as
+                <select
+                  className={`${inputCls} py-1`}
+                  value={parent.kind}
+                  onChange={(e) => setGroupKind(parent, children, e.target.value as CategoryKind)}
+                >
+                  <option value="expense">spending</option>
+                  <option value="income">income</option>
+                  <option value="transfer">transfer</option>
+                </select>
+              </label>
             </div>
             <ul className="space-y-1">
               {children.map((c) => (
@@ -221,7 +241,7 @@ function CategoryTreeSection() {
                 </li>
               ))}
             </ul>
-            {!parent.isSystem && <AddChild onAdd={(name) => addChild(parent.id!, name)} />}
+            {!parent.isSystem && <AddChild onAdd={(name) => addChild(parent, name)} />}
           </div>
         ))}
       </div>

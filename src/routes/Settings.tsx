@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { exportData, downloadBackup, importData, wipeAllData } from '../db/backup'
 import { ensureSeeded } from '../db/seed'
+import { ensureRulesSeeded } from '../categorize/starterDictionary'
+import { ensureProfilesSeeded } from '../import/profiles'
 import { recategorizeUncategorized } from '../categorize/engine'
 import { detectTransfers } from '../transfers/detect'
 import {
@@ -72,6 +74,8 @@ export function Settings() {
     if (!confirm('Are you absolutely sure? Everything will be erased.')) return
     await wipeAllData()
     await ensureSeeded()
+    await ensureRulesSeeded()
+    await ensureProfilesSeeded()
     setStatus('All data erased. Default categories restored.')
   }
 

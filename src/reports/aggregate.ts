@@ -2,8 +2,8 @@ import type { Category, Transaction } from '../db/schema'
 
 /**
  * Pure aggregation over transactions. These functions power the reports and
- * dashboard. Spending means non-transfer outflows (negative amounts); income
- * means non-transfer inflows. Transfers are always excluded.
+ * dashboard. Spending means outflows; income means deposits. Transfers and
+ * credit-card payments/credits are excluded from both — see `classifyTxn`.
  */
 
 export interface ReportFilters {
@@ -21,8 +21,32 @@ export function filterTransactions(txs: Transaction[], f: ReportFilters): Transa
   })
 }
 
-const isSpending = (t: Transaction) => !t.isTransfer && t.amountCents < 0
-const isIncome = (t: Transaction) => !t.isTransfer && t.amountCents > 0
+export type TxnClass = 'income' | 'spending' | 'excluded'
+
+/**
+ * Decide whether a transaction counts as income, spending, or neither.
+ *
+ * Income is driven by the category's `kind`, not by sign alone — a positive
+ * amount is only treated as income when it's an actual bank deposit (an inflow
+ * into a non-credit account) or sits in an income-kind category the user chose.
+ * A positive amount on a credit-card account is a payment/refund/credit, so it
+ * counts as neither income nor spending. Transfers are always excluded.
+ */
+export function classifyTxn(
+  t: Transaction,
+  categories: Map<number, Category>,
+  creditAccountIds?: Set<number>,
+): TxnClass {
+  if (t.isTransfer) return 'excluded'
+  const kind = t.categoryId != null ? categories.get(t.categoryId)?.kind : undefined
+  if (kind === 'transfer') return 'excluded'
+  if (kind === 'income') return 'income'
+  if (t.amountCents < 0) return 'spending'
+  // A positive amount not explicitly in an income category: count it as income
+  // only when it's a genuine bank deposit; otherwise it's a card payment/credit.
+  if (kind === 'expense') return 'excluded'
+  return creditAccountIds?.has(t.accountId) ? 'excluded' : 'income'
+}
 
 export interface MerchantSpend {
   merchant: string
@@ -61,12 +85,13 @@ function sortMerchants(m: Bucket['merchants']): MerchantSpend[] {
 export function spendingByCategory(
   txs: Transaction[],
   categories: Map<number, Category>,
+  creditAccountIds?: Set<number>,
 ): { tree: CategorySpend[]; totalCents: number } {
   const byCat = new Map<number | null, Bucket>()
   let total = 0
 
   for (const t of txs) {
-    if (!isSpending(t)) continue
+    if (classifyTxn(t, categories, creditAccountIds) !== 'spending') continue
     const amt = Math.abs(t.amountCents)
     total += amt
     const bucket = byCat.get(t.categoryId) ?? { amount: 0, merchants: new Map() }
@@ -156,14 +181,19 @@ export interface MonthPoint {
   netCents: number
 }
 
-export function monthlyTrend(txs: Transaction[]): MonthPoint[] {
+export function monthlyTrend(
+  txs: Transaction[],
+  categories: Map<number, Category>,
+  creditAccountIds?: Set<number>,
+): MonthPoint[] {
   const months = new Map<string, { inc: number; exp: number }>()
   for (const t of txs) {
-    if (t.isTransfer) continue
+    const cls = classifyTxn(t, categories, creditAccountIds)
+    if (cls === 'excluded') continue
     const month = t.date.slice(0, 7)
     const e = months.get(month) ?? { inc: 0, exp: 0 }
-    if (t.amountCents >= 0) e.inc += t.amountCents
-    else e.exp += -t.amountCents
+    if (cls === 'income') e.inc += t.amountCents
+    else e.exp += Math.abs(t.amountCents)
     months.set(month, e)
   }
   return [...months.entries()]
@@ -176,10 +206,15 @@ export function monthlyTrend(txs: Transaction[]): MonthPoint[] {
     }))
 }
 
-export function topMerchants(txs: Transaction[], limit = 10): MerchantSpend[] {
+export function topMerchants(
+  txs: Transaction[],
+  categories: Map<number, Category>,
+  creditAccountIds?: Set<number>,
+  limit = 10,
+): MerchantSpend[] {
   const m = new Map<string, { amt: number; count: number }>()
   for (const t of txs) {
-    if (!isSpending(t)) continue
+    if (classifyTxn(t, categories, creditAccountIds) !== 'spending') continue
     const name = merchantName(t)
     const e = m.get(name) ?? { amt: 0, count: 0 }
     e.amt += Math.abs(t.amountCents)
@@ -195,12 +230,17 @@ export interface Totals {
   netCents: number
 }
 
-export function totals(txs: Transaction[]): Totals {
+export function totals(
+  txs: Transaction[],
+  categories: Map<number, Category>,
+  creditAccountIds?: Set<number>,
+): Totals {
   let spend = 0
   let income = 0
   for (const t of txs) {
-    if (isSpending(t)) spend += Math.abs(t.amountCents)
-    else if (isIncome(t)) income += t.amountCents
+    const cls = classifyTxn(t, categories, creditAccountIds)
+    if (cls === 'spending') spend += Math.abs(t.amountCents)
+    else if (cls === 'income') income += t.amountCents
   }
   return { spendCents: spend, incomeCents: income, netCents: income - spend }
 }

@@ -28,6 +28,78 @@ import {
 const inputCls =
   'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
 
+/** Format a Date as a local YYYY-MM-DD string (matches stored transaction dates). */
+function isoDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+type Preset =
+  | 'custom'
+  | 'all'
+  | 'last7'
+  | 'last30'
+  | 'last60'
+  | 'last90'
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'ytd'
+  | 'lastYear'
+
+const PRESET_OPTIONS: { value: Preset; label: string }[] = [
+  { value: 'all', label: 'All time' },
+  { value: 'last7', label: 'Last 7 days' },
+  { value: 'last30', label: 'Last 30 days' },
+  { value: 'last60', label: 'Last 60 days' },
+  { value: 'last90', label: 'Last 90 days' },
+  { value: 'thisMonth', label: 'This month' },
+  { value: 'lastMonth', label: 'Last month' },
+  { value: 'ytd', label: 'Year to date' },
+  { value: 'lastYear', label: 'Last year' },
+  { value: 'custom', label: 'Custom range' },
+]
+
+/** Resolve a preset to a {from, to} date range. Empty string means open-ended. */
+function presetRange(preset: Preset): { from: string; to: string } {
+  const today = new Date()
+  const to = isoDate(today)
+  const daysAgo = (n: number) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - n)
+    return isoDate(d)
+  }
+  switch (preset) {
+    case 'last7':
+      return { from: daysAgo(6), to }
+    case 'last30':
+      return { from: daysAgo(29), to }
+    case 'last60':
+      return { from: daysAgo(59), to }
+    case 'last90':
+      return { from: daysAgo(89), to }
+    case 'thisMonth':
+      return { from: isoDate(new Date(today.getFullYear(), today.getMonth(), 1)), to }
+    case 'lastMonth':
+      return {
+        from: isoDate(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+        to: isoDate(new Date(today.getFullYear(), today.getMonth(), 0)),
+      }
+    case 'ytd':
+      return { from: isoDate(new Date(today.getFullYear(), 0, 1)), to }
+    case 'lastYear':
+      return {
+        from: isoDate(new Date(today.getFullYear() - 1, 0, 1)),
+        to: isoDate(new Date(today.getFullYear() - 1, 11, 31)),
+      }
+    case 'all':
+    case 'custom':
+    default:
+      return { from: '', to: '' }
+  }
+}
+
 export function Reports() {
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
   const allTx = useLiveQuery(() => db.transactions.toArray(), [])
@@ -43,7 +115,17 @@ export function Reports() {
 
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [preset, setPreset] = useState<Preset>('all')
   const [accountId, setAccountId] = useState<number | 'all'>('all')
+
+  const applyPreset = (p: Preset) => {
+    setPreset(p)
+    if (p !== 'custom') {
+      const range = presetRange(p)
+      setFrom(range.from)
+      setTo(range.to)
+    }
+  }
 
   const txs = useMemo(
     () => (allTx ? filterTransactions(allTx, { from, to, accountId }) : []),
@@ -51,13 +133,26 @@ export function Reports() {
   )
 
   const currency = accounts?.[0]?.currency ?? 'USD'
-  const { tree, totalCents } = useMemo(
-    () => spendingByCategory(txs, categoryMap),
-    [txs, categoryMap],
+  const creditAccountIds = useMemo(
+    () => new Set((accounts ?? []).filter((a) => a.type === 'credit').map((a) => a.id!)),
+    [accounts],
   )
-  const trend = useMemo(() => monthlyTrend(txs), [txs])
-  const merchants = useMemo(() => topMerchants(txs, 10), [txs])
-  const sums = useMemo(() => totals(txs), [txs])
+  const { tree, totalCents } = useMemo(
+    () => spendingByCategory(txs, categoryMap, creditAccountIds),
+    [txs, categoryMap, creditAccountIds],
+  )
+  const trend = useMemo(
+    () => monthlyTrend(txs, categoryMap, creditAccountIds),
+    [txs, categoryMap, creditAccountIds],
+  )
+  const merchants = useMemo(
+    () => topMerchants(txs, categoryMap, creditAccountIds, 10),
+    [txs, categoryMap, creditAccountIds],
+  )
+  const sums = useMemo(
+    () => totals(txs, categoryMap, creditAccountIds),
+    [txs, categoryMap, creditAccountIds],
+  )
 
   if (allTx && allTx.length === 0) {
     return (
@@ -81,12 +176,42 @@ export function Reports() {
       {/* Filters */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          Range
+          <select
+            className={inputCls}
+            value={preset}
+            onChange={(e) => applyPreset(e.target.value as Preset)}
+          >
+            {PRESET_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
           From
-          <input type="date" className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input
+            type="date"
+            className={inputCls}
+            value={from}
+            onChange={(e) => {
+              setFrom(e.target.value)
+              setPreset('custom')
+            }}
+          />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
           To
-          <input type="date" className={inputCls} value={to} onChange={(e) => setTo(e.target.value)} />
+          <input
+            type="date"
+            className={inputCls}
+            value={to}
+            onChange={(e) => {
+              setTo(e.target.value)
+              setPreset('custom')
+            }}
+          />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
           Account

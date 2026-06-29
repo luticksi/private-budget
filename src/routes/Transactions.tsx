@@ -12,6 +12,7 @@ import type { Transaction } from '../db/schema'
 export function Transactions() {
   const [search, setSearch] = useState('')
   const [accountId, setAccountId] = useState<number | 'all'>('all')
+  const [uncategorizedOnly, setUncategorizedOnly] = useState(false)
 
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
   const categoryMap = useCategoryMap()
@@ -26,13 +27,14 @@ export function Transactions() {
     const q = search.trim().toLowerCase()
     return transactions.filter((t) => {
       if (accountId !== 'all' && t.accountId !== accountId) return false
+      if (uncategorizedOnly && t.categoryId != null) return false
       if (!q) return true
       return (
         t.rawDescription.toLowerCase().includes(q) ||
         t.normalizedMerchant.toLowerCase().includes(q)
       )
     })
-  }, [transactions, search, accountId])
+  }, [transactions, search, accountId, uncategorizedOnly])
 
   async function setCategory(tx: Transaction, categoryId: number | null) {
     await db.transactions.update(tx.id!, { categoryId, updatedAt: Date.now() })
@@ -93,6 +95,15 @@ export function Transactions() {
             </option>
           ))}
         </select>
+        <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-800"
+            checked={uncategorizedOnly}
+            onChange={(e) => setUncategorizedOnly(e.target.checked)}
+          />
+          Uncategorized only
+        </label>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

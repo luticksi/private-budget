@@ -1,6 +1,6 @@
 import { db } from '../db'
 import type { Transaction } from '../db/schema'
-import { loadEnabledRules, categorizeWith } from '../categorize/engine'
+import { loadEnabledRules, categorizeWith, loadCategoryKinds } from '../categorize/engine'
 import { computeDedupHash } from './dedup'
 import { normalizeMerchant } from './normalizeMerchant'
 import type { ParsedTransaction } from './types'
@@ -26,7 +26,12 @@ export interface CommitResult {
  */
 export async function commitImport(input: CommitInput): Promise<CommitResult> {
   const { accountId, currency, fileName, profileId, transactions } = input
-  const rules = await loadEnabledRules()
+  const [rules, categoryKinds, account] = await Promise.all([
+    loadEnabledRules(),
+    loadCategoryKinds(),
+    db.accounts.get(accountId),
+  ])
+  const isCreditAccount = account?.type === 'credit'
   const now = Date.now()
 
   return db.transaction('rw', db.transactions, db.importBatches, async () => {
@@ -77,7 +82,16 @@ export async function commitImport(input: CommitInput): Promise<CommitResult> {
         currency,
         rawDescription: p.rawDescription,
         normalizedMerchant,
-        categoryId: categorizeWith(rules, { normalizedMerchant, rawDescription: p.rawDescription }),
+        categoryId: categorizeWith(
+          rules,
+          {
+            normalizedMerchant,
+            rawDescription: p.rawDescription,
+            amountCents: p.amountCents,
+            isCreditAccount,
+          },
+          categoryKinds,
+        ),
         isTransfer: false,
         transferGroupId: null,
         importBatchId: batchId,

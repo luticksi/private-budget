@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom'
 import { installNetworkMonitor } from './privacy/networkMonitor'
 import { ensureSeeded } from './db/seed'
 import { ensureRulesSeeded } from './categorize/starterDictionary'
+import { ensureProfilesSeeded } from './import/profiles'
 import { requestPersistentStorage } from './storage/persist'
 import { initTheme } from './theme/theme'
 import { ThemeProvider } from './theme/ThemeProvider'
@@ -22,8 +23,8 @@ installNetworkMonitor()
 // Ask the browser to keep our data and not auto-evict it under disk pressure.
 void requestPersistentStorage()
 
-// Seed default categories, then the built-in rules (idempotent).
-void ensureSeeded().then(ensureRulesSeeded)
+// Seed default categories, then the built-in rules and import profiles (idempotent).
+void ensureSeeded().then(ensureRulesSeeded).then(ensureProfilesSeeded)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { matchRule, categorizeWith } from './engine'
-import type { Rule } from '../db/schema'
+import type { CategoryKind, Rule } from '../db/schema'
 
 const mkRule = (over: Partial<Rule>): Rule => ({
   field: 'rawDescription',
@@ -14,7 +14,12 @@ const mkRule = (over: Partial<Rule>): Rule => ({
   ...over,
 })
 
-const input = { normalizedMerchant: '', rawDescription: 'STARBUCKS #123 SEATTLE' }
+const input = {
+  normalizedMerchant: '',
+  rawDescription: 'STARBUCKS #123 SEATTLE',
+  amountCents: -575,
+  isCreditAccount: false,
+}
 
 describe('matchRule', () => {
   it('supports contains / startsWith / equals / regex (case-insensitive)', () => {
@@ -24,6 +29,8 @@ describe('matchRule', () => {
       matchRule(mkRule({ match: 'equals', pattern: 'starbucks' }), {
         normalizedMerchant: 'Starbucks',
         rawDescription: 'irrelevant',
+        amountCents: -100,
+        isCreditAccount: false,
       }),
     ).toBe(false) // equals checks the whole description here
     expect(matchRule(mkRule({ match: 'regex', pattern: '^STAR' }), input)).toBe(true)
@@ -45,5 +52,24 @@ describe('categorizeWith', () => {
 
   it('returns null when nothing matches', () => {
     expect(categorizeWith([mkRule({ pattern: 'nope' })], input)).toBeNull()
+  })
+
+  it('applies an income rule only to a genuine bank deposit', () => {
+    const kinds = new Map<number, CategoryKind>([[5, 'income']])
+    const rule = mkRule({ pattern: 'payroll', categoryId: 5 })
+    const deposit = {
+      normalizedMerchant: '',
+      rawDescription: 'ACME PAYROLL DIRECT DEP',
+      amountCents: 250000,
+      isCreditAccount: false,
+    }
+    const cardInflow = { ...deposit, isCreditAccount: true } // e.g. a credit-card payment
+    const outflow = { ...deposit, amountCents: -250000, isCreditAccount: false }
+
+    expect(categorizeWith([rule], deposit, kinds)).toBe(5)
+    expect(categorizeWith([rule], cardInflow, kinds)).toBeNull()
+    expect(categorizeWith([rule], outflow, kinds)).toBeNull()
+    // Without a kinds map the guard is inactive (back-compat).
+    expect(categorizeWith([rule], cardInflow)).toBe(5)
   })
 })

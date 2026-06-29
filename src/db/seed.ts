@@ -1,15 +1,21 @@
 import { db } from './index'
-import type { Category } from './schema'
+import type { Category, CategoryKind } from './schema'
 
 const SEED_FLAG = 'seed:categories:v1'
 
 /**
  * Default category tree. Top-level entries are parents; their `children`
- * become sub-categories. "Transfers" is a system category used by transfer
- * detection so account-to-account moves don't count as spending.
+ * become sub-categories. `kind` (defaulting to "expense") drives how reports
+ * treat a category and its children. "Transfers" is a system category used by
+ * transfer detection so account-to-account moves don't count as spending.
  */
-const CATEGORY_TREE: Array<{ name: string; system?: boolean; children?: string[] }> = [
-  { name: 'Income', children: ['Salary', 'Refunds & Reimbursements', 'Interest', 'Other Income'] },
+const CATEGORY_TREE: Array<{
+  name: string
+  system?: boolean
+  kind?: CategoryKind
+  children?: string[]
+}> = [
+  { name: 'Income', kind: 'income', children: ['Salary', 'Refunds & Reimbursements', 'Interest', 'Other Income'] },
   {
     name: 'Food & Dining',
     children: ['Groceries', 'Restaurants', 'Coffee Shops', 'Fast Food', 'Alcohol & Bars', 'Food Delivery'],
@@ -31,7 +37,7 @@ const CATEGORY_TREE: Array<{ name: string; system?: boolean; children?: string[]
   { name: 'Education', children: [] },
   { name: 'Gifts & Donations', children: [] },
   { name: 'Fees & Charges', children: ['Bank Fees', 'Interest Charges', 'ATM'] },
-  { name: 'Transfers', system: true, children: ['Credit Card Payment'] },
+  { name: 'Transfers', system: true, kind: 'transfer', children: ['Credit Card Payment'] },
 ]
 
 /** Seed default categories once. Safe to call on every app start. */
@@ -44,9 +50,11 @@ export async function ensureSeeded(): Promise<void> {
     if (await db.meta.get(SEED_FLAG)) return
 
     for (const parent of CATEGORY_TREE) {
+      const kind: CategoryKind = parent.kind ?? 'expense'
       const parentId = await db.categories.add({
         name: parent.name,
         parentId: null,
+        kind,
         isSystem: !!parent.system,
       } satisfies Category)
 
@@ -54,6 +62,7 @@ export async function ensureSeeded(): Promise<void> {
         await db.categories.add({
           name: child,
           parentId,
+          kind,
           isSystem: !!parent.system,
         } satisfies Category)
       }

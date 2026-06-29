@@ -17,11 +17,22 @@ export interface Account {
   createdAt: number
 }
 
+/**
+ * How reports treat a category:
+ * - `income`: counted as income. Auto-categorization only assigns these to
+ *   genuine bank deposits (a positive amount on a non-credit account).
+ * - `transfer`: account-to-account movement (e.g. a credit-card payment);
+ *   excluded from both income and spending.
+ * - `expense`: everything else; counted as spending.
+ */
+export type CategoryKind = 'income' | 'expense' | 'transfer'
+
 export interface Category {
   id?: number
   name: string
   parentId: number | null
   color?: string
+  kind: CategoryKind
   /** True for categories seeded by the app (e.g. "Transfers"). */
   isSystem: boolean
 }
@@ -95,7 +106,16 @@ export interface ImportProfile {
   /** e.g. "MM/DD/YYYY", "YYYY-MM-DD", "DD/MM/YYYY". */
   dateFormat: string
   signConvention: SignConvention
+  /**
+   * Extra header names (beyond the mapped columns) that must also be present
+   * for this profile to auto-match a file. Used to disambiguate issuers whose
+   * mapped columns are generically named — e.g. Amex's "Card Member" /
+   * "Account #" distinguish it from any other Date/Description/Amount export.
+   */
+  matchHeaders?: string[]
   defaultAccountId?: number
+  /** True for profiles seeded by the app; users can still edit them. */
+  isBuiltin?: boolean
   createdAt: number
 }
 

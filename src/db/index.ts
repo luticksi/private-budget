@@ -35,6 +35,24 @@ export class BudgetDB extends Dexie {
       importBatches: '++id, accountId, importedAt',
       meta: 'key',
     })
+
+    // v2 adds Category.kind (income/expense/transfer). It isn't indexed, so the
+    // stores schema is unchanged; the upgrade backfills existing categories by
+    // their tree position so income recognition no longer relies on sign alone.
+    this.version(2).upgrade(async (tx) => {
+      const table = tx.table<Category, number>('categories')
+      const cats = await table.toArray()
+      const byId = new Map(cats.map((c) => [c.id!, c]))
+      const kindOf = (c: Category): Category['kind'] => {
+        const top = c.parentId != null ? (byId.get(c.parentId) ?? c) : c
+        if (top.name === 'Income') return 'income'
+        if (top.name === 'Transfers') return 'transfer'
+        return 'expense'
+      }
+      await Promise.all(
+        cats.map((c) => table.update(c.id!, { kind: kindOf(c) })),
+      )
+    })
   }
 }
 

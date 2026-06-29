@@ -21,6 +21,9 @@ const categorySchema = z.object({
   name: z.string(),
   parentId: z.number().nullable(),
   color: z.string().optional(),
+  // Optional with a default so backups taken before `kind` existed still
+  // restore (treated as spending until the user adjusts the group).
+  kind: z.enum(['income', 'expense', 'transfer']).default('expense'),
   isSystem: z.boolean(),
 })
 

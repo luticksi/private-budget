@@ -50,7 +50,7 @@ export function Import() {
         setProfileId(match.id ?? null)
         setProfileNote(`Using saved profile "${match.name}".`)
       } else {
-        setConfig(detectMapping(parsed))
+        setConfig(detectMapping(parsed, { accountType: account?.type }))
         setProfileId(null)
         setProfileNote(null)
       }
