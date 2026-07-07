@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Private, local-first budgeting. Your financial data never leaves your device.",
   "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
