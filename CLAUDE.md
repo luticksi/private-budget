@@ -40,6 +40,10 @@ server, it doesn't belong in the core app.
 - README's privacy table makes verifiable claims (offline-capable, zero
   cross-origin requests, reproducible build) — a change that falsifies any of
   them is a bug even if tests pass.
+- The "Changes must be made through a pull request" branch protection on
+  `main` exists to stop outside-contributor changes from being auto-accepted,
+  not to block the owner. Direct pushes to `main` (bypassing the rule) are
+  fine when the user is the one asking for them.
 
 ## Sibling projects
 
