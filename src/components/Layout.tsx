@@ -73,6 +73,17 @@ export function Layout() {
         <main className="flex-1 overflow-auto p-6">
           <Outlet />
         </main>
+        <footer className="border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-500">
+          © {new Date().getFullYear()}{' '}
+          <a
+            href="https://grantingramdigital.com"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-medium text-slate-600 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400"
+          >
+            Grant-Ingram Digital
+          </a>
+        </footer>
       </div>
     </div>
   )
