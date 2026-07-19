@@ -11,7 +11,7 @@ open-source repo with outside contributors.
 requests.** The CSP is `connect-src 'self'`; the in-app badge counts
 cross-origin requests and must stay at 0. Therefore never add: analytics, CDN
 assets/fonts, third-party scripts or embeds, telemetry, error reporting, or any
-backend/API call. External links (e.g. the Donorbox donate link) open in a new
+backend/API call. External links (e.g. a donate link) open in a new
 tab — nothing third-party runs inside the app. If a feature seems to need a
 server, it doesn't belong in the core app.
 

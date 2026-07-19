@@ -72,6 +72,11 @@ export interface Transaction {
   dedupHash: string
   /** Unique id from the source file (e.g. OFX FITID), when available. */
   fitId?: string | null
+  /**
+   * Running account balance after this transaction, when the statement
+   * provided one. Not indexed, so no migration is needed; older rows omit it.
+   */
+  balanceCents?: number | null
   notes?: string
   createdAt: number
   updatedAt: number
@@ -93,6 +98,8 @@ export interface ColumnMap {
   amount?: string // single signed-amount column
   debit?: string // used with separateColumns
   credit?: string // used with separateColumns
+  /** Optional running-balance column, kept for later reconciliation. */
+  balance?: string
 }
 
 export interface ImportProfile {

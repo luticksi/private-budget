@@ -73,9 +73,22 @@ function buildMatcher(format: string): Matcher {
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
+/**
+ * A time-of-day tacked onto a date, as fintech exports tend to emit:
+ * "2026-07-01T14:03:22Z", "2026-07-01 14:03:22 UTC", "07/01/2026 2:03 PM".
+ * We budget on whole days, so the time is dropped rather than parsed.
+ */
+const TIME_SUFFIX =
+  /[T\s]\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[AaPp]\.?[Mm]\.?)?\s*(?:Z|UTC|GMT|[+-]\d{2}:?\d{2})?$/
+
+/** Strip a trailing time so date-only formats can still match. */
+export function stripTime(value: string): string {
+  return value.trim().replace(TIME_SUFFIX, '').trim()
+}
+
 /** Parse a date string with a known format into an ISO "YYYY-MM-DD", or null. */
 export function parseDate(value: string, format: string): string | null {
-  const v = value.trim()
+  const v = stripTime(value)
   if (!v) return null
   const { regex, order } = buildMatcher(format)
   const match = regex.exec(v)
@@ -101,14 +114,31 @@ export function parseDate(value: string, format: string): string | null {
   return `${year}-${pad(month)}-${pad(day)}`
 }
 
+/**
+ * Share of a column a format must parse to be considered. Deliberately below
+ * 1 so a stray footer ("Total:") or blank-ish cell can't disqualify the format
+ * the other 99% of the column uses — `mapCsvRows` skips those rows and reports
+ * them instead.
+ */
+const MIN_PARSE_RATE = 0.9
+
 /** Pick the format that best parses a column of date strings, or null. */
 export function detectDateFormat(samples: string[]): string | null {
   const values = samples.map((s) => s.trim()).filter(Boolean)
   if (!values.length) return null
 
-  const parseAll = (fmt: string) => values.every((v) => parseDate(v, fmt) !== null)
-  const viable = CANDIDATE_FORMATS.filter(parseAll)
-  if (!viable.length) return null
+  const parseRate = (fmt: string) =>
+    values.filter((v) => parseDate(v, fmt) !== null).length / values.length
+
+  const scored = CANDIDATE_FORMATS.map((f) => ({ format: f, rate: parseRate(f) })).filter(
+    (s) => s.rate >= MIN_PARSE_RATE,
+  )
+  if (!scored.length) return null
+
+  // Only formats tied at the best rate compete; a format that explains more of
+  // the column always beats one that explains less.
+  const bestRate = Math.max(...scored.map((s) => s.rate))
+  const viable = scored.filter((s) => s.rate === bestRate).map((s) => s.format)
   if (viable.length === 1) return viable[0]
 
   // If month-first and day-first both parse everything, disambiguate by looking

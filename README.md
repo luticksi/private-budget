@@ -183,10 +183,10 @@ curl -sI https://privatebudget.org | grep -i -E "content-security-policy|x-frame
 
 ## Funding
 
-PrivateBudget is free and open source, funded by donations via
-[Donorbox](https://donorbox.org/private-budget). The donate link opens
-Donorbox in a new tab rather than embedding it, so no third-party code ever runs
-inside the app and the strict no-network guarantee is never weakened.
+PrivateBudget is free and open source, funded by donations. A donation link is
+being set up; when it returns it will open in a new tab rather than being
+embedded, so no third-party code ever runs inside the app and the strict
+no-network guarantee is never weakened.
 
 ## Contributing
 

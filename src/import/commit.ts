@@ -97,6 +97,7 @@ export async function commitImport(input: CommitInput): Promise<CommitResult> {
         importBatchId: batchId,
         dedupHash,
         fitId: p.fitId ?? null,
+        balanceCents: p.balanceCents ?? null,
         createdAt: now,
         updatedAt: now,
       })

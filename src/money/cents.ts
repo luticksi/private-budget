@@ -32,10 +32,22 @@ function normalizeDecimal(s: string): string {
   return sep === ',' ? s.replace(',', '.') : s
 }
 
+/** Currency symbols that may sit next to a number without changing its value. */
+const CURRENCY_SYMBOLS = '$€£¥₹¢₽₩'
+
 /**
- * Parse a value from a statement into integer cents. Handles currency symbols,
- * thousands separators, European decimals, parentheses-as-negative, and
- * leading/trailing minus signs. Returns null if it can't be parsed.
+ * A bare number once symbols and spaces are gone: digits, optionally broken up
+ * by `.`/`,` groups. Anything else (`12:34:56`, `1-2`, `12/34`) is not money.
+ */
+const NUMERIC = /^\d+(?:[.,]\d+)*$/
+
+/**
+ * Parse a value from a statement into integer cents. Handles currency symbols
+ * and ISO codes, thousands separators, European decimals,
+ * parentheses-as-negative, leading/trailing minus signs, and the trailing
+ * `CR`/`DR` markers some banks use instead of a sign. Returns null if it can't
+ * be parsed — including for values that merely *contain* digits, so that
+ * ids, times, and dates are never mistaken for amounts.
  */
 export function parseAmountToCents(
   input: string | number | null | undefined,
@@ -51,8 +63,19 @@ export function parseAmountToCents(
   let negative = false
   if (/^\(.*\)$/.test(s)) {
     negative = true
-    s = s.slice(1, -1)
+    s = s.slice(1, -1).trim()
   }
+
+  // Trailing CR/DR marker: DR (debit) is money out, CR (credit) is money in.
+  const marker = /\s*\b(CR|DR)\b\.?$/i.exec(s)
+  if (marker) {
+    if (marker[1].toUpperCase() === 'DR') negative = true
+    s = s.slice(0, marker.index).trim()
+  }
+
+  // ISO currency code on either side, e.g. "USD 42.00" or "42.00 EUR".
+  s = s.replace(/^[A-Za-z]{3}\s+/, '').replace(/\s+[A-Za-z]{3}$/, '').trim()
+
   if (s.startsWith('-')) {
     negative = true
     s = s.slice(1)
@@ -63,8 +86,11 @@ export function parseAmountToCents(
     s = s.slice(1)
   }
 
-  s = s.replace(/[^\d.,]/g, '') // strip currency symbols, spaces, etc.
-  if (s === '') return null
+  // Strip currency symbols and internal spaces, then require what's left to be
+  // a plain number. Unknown characters make the value unparseable rather than
+  // being silently removed.
+  s = s.replace(new RegExp(`[${CURRENCY_SYMBOLS}\\s]`, 'g'), '')
+  if (!NUMERIC.test(s)) return null
 
   const value = Number(normalizeDecimal(s))
   if (!Number.isFinite(value)) return null

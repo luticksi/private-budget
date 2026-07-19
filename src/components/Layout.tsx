@@ -1,7 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { NetworkBadge } from '../privacy/NetworkBadge'
 import { ThemeToggle } from '../theme/ThemeToggle'
-import { DONATE_URL } from '../config'
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -54,14 +53,6 @@ export function Layout() {
           >
             How your data stays private
           </NavLink>
-          <a
-            href={DONATE_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="mt-1 block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          >
-            Donate ↗
-          </a>
         </div>
       </aside>
 

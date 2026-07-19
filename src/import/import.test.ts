@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { parseDate, detectDateFormat } from './dates'
+import { parseDate, detectDateFormat, stripTime } from './dates'
 import { normalizeMerchant } from './normalizeMerchant'
-import { mapCsvRows } from './csv'
-import { detectMapping } from './detect'
+import { mapCsvRows, previewCsvText } from './csv'
+import { checkSignConvention, detectMapping } from './detect'
 import { computeDedupHash } from './dedup'
 import type { RawTable } from './types'
 
@@ -19,12 +19,88 @@ describe('parseDate', () => {
   })
 })
 
+describe('stripTime', () => {
+  it('drops a trailing time from date-time values', () => {
+    expect(stripTime('2026-07-01T14:03:22Z')).toBe('2026-07-01')
+    expect(stripTime('2026-07-01 14:03:22 UTC')).toBe('2026-07-01')
+    expect(stripTime('07/01/2026 2:03 PM')).toBe('07/01/2026')
+    expect(stripTime('2026-07-01')).toBe('2026-07-01')
+  })
+})
+
+describe('parseDate with timestamps', () => {
+  it('parses date-time cells with a date-only format', () => {
+    expect(parseDate('2026-07-01T14:03:22Z', 'YYYY-MM-DD')).toBe('2026-07-01')
+    expect(parseDate('07/01/2026 2:03 PM', 'MM/DD/YYYY')).toBe('2026-07-01')
+  })
+})
+
 describe('detectDateFormat', () => {
   it('detects ISO', () => {
     expect(detectDateFormat(['2024-01-02', '2024-12-31'])).toBe('YYYY-MM-DD')
   })
   it('disambiguates day-first when a value exceeds 12', () => {
     expect(detectDateFormat(['13/02/2024', '01/05/2024'])).toBe('DD/MM/YYYY')
+  })
+  it('detects a format despite a stray unparseable value', () => {
+    // A footer or label in the date column used to disqualify every format.
+    const values = [
+      ...Array.from({ length: 19 }, (_, i) => `2024-01-${String(i + 1).padStart(2, '0')}`),
+      'Total',
+    ]
+    expect(detectDateFormat(values)).toBe('YYYY-MM-DD')
+  })
+  it('still prefers the format that explains more of the column', () => {
+    expect(detectDateFormat(['13/02/2024', '20/02/2024', '01/05/2024'])).toBe('DD/MM/YYYY')
+  })
+  it('detects a format from timestamped values', () => {
+    expect(detectDateFormat(['2026-07-01T14:03:22Z', '2026-07-02T09:00:00Z'])).toBe(
+      'YYYY-MM-DD',
+    )
+  })
+})
+
+describe('previewCsvText', () => {
+  it('skips metadata lines above the header', () => {
+    const csv = [
+      'Account Statement',
+      'Account: ****1234',
+      'Period: 01/01/2024 - 01/31/2024',
+      '',
+      'Date,Description,Amount',
+      '01/02/2024,COFFEE,-5.75',
+      '01/03/2024,PAYCHECK,2000.00',
+    ].join('\n')
+    const table = previewCsvText(csv)
+    expect(table.headers).toEqual(['Date', 'Description', 'Amount'])
+    expect(table.rows).toHaveLength(2)
+    expect(table.preambleRows).toHaveLength(3)
+  })
+
+  it('drops a narrow trailing summary line', () => {
+    const csv = [
+      'Date,Description,Amount',
+      '01/02/2024,COFFEE,-5.75',
+      '01/03/2024,PAYCHECK,2000.00',
+      'Total,1994.25',
+    ].join('\n')
+    const table = previewCsvText(csv)
+    expect(table.rows).toHaveLength(2)
+    expect(table.footerRows).toHaveLength(1)
+  })
+
+  it('reads a semicolon-delimited file', () => {
+    const csv = ['Date;Description;Amount', '01/02/2024;COFFEE;-5,75'].join('\n')
+    const table = previewCsvText(csv)
+    expect(table.headers).toEqual(['Date', 'Description', 'Amount'])
+    expect(table.rows[0]).toEqual(['01/02/2024', 'COFFEE', '-5,75'])
+  })
+
+  it('keeps a headerless file as data', () => {
+    const csv = ['01/02/2024,COFFEE,-5.75', '01/03/2024,PAYCHECK,2000.00'].join('\n')
+    const table = previewCsvText(csv)
+    expect(table.hasHeader).toBe(false)
+    expect(table.rows).toHaveLength(2)
   })
 })
 
@@ -151,7 +227,7 @@ describe('detectMapping', () => {
     expect(config.dateFormat).toBe('MM/DD/YYYY')
   })
 
-  it('defaults a credit-card account to positive-is-outflow', () => {
+  it('reads Amex charges as positive-is-outflow from its payment row', () => {
     expect(detectMapping(amex, { accountType: 'credit' }).signConvention).toBe(
       'positiveIsOutflow',
     )
@@ -159,6 +235,117 @@ describe('detectMapping', () => {
     expect(detectMapping(amex, { accountType: 'checking' }).signConvention).toBe(
       'negativeIsOutflow',
     )
+  })
+
+  // Chase is the counterexample to the old "credit account ⇒ charges positive"
+  // rule: it exports charges negative, so assuming by account type inverted
+  // every amount in the file.
+  const chaseCredit: RawTable = {
+    headers: ['Transaction Date', 'Post Date', 'Description', 'Category', 'Type', 'Amount', 'Memo'],
+    rows: [
+      ['01/02/2024', '01/03/2024', 'STARBUCKS #123', 'Food & Drink', 'Sale', '-5.75', ''],
+      ['01/04/2024', '01/05/2024', 'SHELL OIL', 'Gas', 'Sale', '-42.10', ''],
+      ['01/06/2024', '01/07/2024', 'AMAZON.COM', 'Shopping', 'Sale', '-88.20', ''],
+      ['01/10/2024', '01/10/2024', 'Payment Thank You - Web', '', 'Payment', '1200.00', ''],
+    ],
+    delimiter: ',',
+    hasHeader: true,
+  }
+
+  const discover: RawTable = {
+    headers: ['Trans. Date', 'Post Date', 'Description', 'Amount', 'Category'],
+    rows: [
+      ['01/02/2024', '01/03/2024', 'STARBUCKS #123', '5.75', 'Restaurants'],
+      ['01/04/2024', '01/05/2024', 'SHELL OIL', '42.10', 'Gasoline'],
+      ['01/06/2024', '01/07/2024', 'AMAZON.COM', '88.20', 'Merchandise'],
+      ['01/10/2024', '01/10/2024', 'DIRECTPAY FULL BALANCE', '-136.05', 'Payments'],
+    ],
+    delimiter: ',',
+    hasHeader: true,
+  }
+
+  it('keeps Chase credit charges as negative-is-outflow', () => {
+    const config = detectMapping(chaseCredit, { accountType: 'credit' })
+    expect(config.signConvention).toBe('negativeIsOutflow')
+    expect(config.columnMap.amount).toBe('Amount')
+    // Spending must come out negative, not positive.
+    const { transactions } = mapCsvRows(chaseCredit, config)
+    expect(transactions[0].amountCents).toBe(-575)
+    expect(transactions[3].amountCents).toBe(120000)
+  })
+
+  it('reads Discover charges as positive-is-outflow', () => {
+    const config = detectMapping(discover, { accountType: 'credit' })
+    expect(config.signConvention).toBe('positiveIsOutflow')
+    const { transactions } = mapCsvRows(discover, config)
+    expect(transactions[0].amountCents).toBe(-575)
+    expect(transactions[3].amountCents).toBe(13605)
+  })
+
+  it('falls back to majority-of-rows when no payment row is present', () => {
+    const noPayment: RawTable = { ...discover, rows: discover.rows.slice(0, 3) }
+    expect(detectMapping(noPayment, { accountType: 'credit' }).signConvention).toBe(
+      'positiveIsOutflow',
+    )
+  })
+})
+
+describe('checkSignConvention', () => {
+  const tx = (amountCents: number, rawDescription: string) => ({ amountCents, rawDescription })
+
+  it('flags a card whose payments look like money out', () => {
+    const warning = checkSignConvention(
+      [
+        tx(575, 'STARBUCKS'),
+        tx(4210, 'SHELL OIL'),
+        tx(8820, 'AMAZON.COM'),
+        tx(-120000, 'Payment Thank You - Web'),
+      ],
+      'negativeIsOutflow',
+      'credit',
+    )
+    expect(warning?.suggested).toBe('positiveIsOutflow')
+  })
+
+  it('flags a statement with no spending at all', () => {
+    const warning = checkSignConvention(
+      [tx(575, 'A'), tx(4210, 'B'), tx(8820, 'C'), tx(1000, 'D')],
+      'negativeIsOutflow',
+      'checking',
+    )
+    expect(warning?.suggested).toBe('positiveIsOutflow')
+  })
+
+  it('tolerates a lopsided but plausible month on a non-card account', () => {
+    // 80% inflow is unusual, not wrong — a savings account can look like this,
+    // so the warning stays quiet rather than crying wolf.
+    expect(
+      checkSignConvention(
+        [tx(575, 'A'), tx(4210, 'B'), tx(8820, 'C'), tx(1000, 'D'), tx(-50, 'E')],
+        'negativeIsOutflow',
+        'checking',
+      ),
+    ).toBeNull()
+  })
+
+  it('stays quiet on a normal statement', () => {
+    expect(
+      checkSignConvention(
+        [tx(-575, 'A'), tx(-4210, 'B'), tx(-8820, 'C'), tx(200000, 'PAYCHECK')],
+        'negativeIsOutflow',
+        'checking',
+      ),
+    ).toBeNull()
+  })
+
+  it('stays quiet for separate debit/credit columns', () => {
+    expect(
+      checkSignConvention(
+        [tx(575, 'A'), tx(4210, 'B'), tx(8820, 'C'), tx(1000, 'D')],
+        'separateColumns',
+        'checking',
+      ),
+    ).toBeNull()
   })
 })
 

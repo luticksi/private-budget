@@ -38,12 +38,25 @@ describe('parseAmountToCents', () => {
     expect(parseAmountToCents(-5)).toBe(-500)
   })
 
+  it('reads trailing CR/DR markers as sign', () => {
+    expect(parseAmountToCents('1,234.56 CR')).toBe(123456)
+    expect(parseAmountToCents('1,234.56 DR')).toBe(-123456)
+    expect(parseAmountToCents('$50.00 dr')).toBe(-5000)
+  })
+
   it('returns null for empty or junk input', () => {
     expect(parseAmountToCents('')).toBeNull()
     expect(parseAmountToCents('   ')).toBeNull()
     expect(parseAmountToCents(null)).toBeNull()
     expect(parseAmountToCents(undefined)).toBeNull()
     expect(parseAmountToCents('abc')).toBeNull()
+  })
+
+  it('rejects values that merely contain digits', () => {
+    // Stripping unknown characters would turn these into plausible amounts.
+    expect(parseAmountToCents('12:34:56')).toBeNull()
+    expect(parseAmountToCents('01/02/2024')).toBeNull()
+    expect(parseAmountToCents('ACCT-4102')).toBeNull()
   })
 })
 

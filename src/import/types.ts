@@ -15,6 +15,10 @@ export interface RawTable {
   rows: string[][]
   delimiter: string
   hasHeader: boolean
+  /** Lines above the header (bank preamble/metadata) that were discarded. */
+  preambleRows?: string[][]
+  /** Narrow trailing lines (e.g. "Total: 1,234.56") that were discarded. */
+  footerRows?: string[][]
 }
 
 /** The bits of an ImportProfile needed to turn a RawTable into transactions. */
@@ -41,8 +45,18 @@ export interface StatementParser {
   parse?(file: File): Promise<ParsedTransaction[]>
 }
 
+/** A row the mapping couldn't turn into a transaction, kept for the wizard. */
+export interface SkippedRow {
+  /** 1-based position among the table's body rows. */
+  rowNumber: number
+  cells: string[]
+  reason: string
+}
+
 export interface MapResult {
   transactions: ParsedTransaction[]
   /** Rows that couldn't be parsed (bad/blank date or amount). */
   skipped: number
+  /** The first few skipped rows, so the user can see *why* they were skipped. */
+  skippedRows: SkippedRow[]
 }

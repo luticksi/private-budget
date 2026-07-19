@@ -6,7 +6,7 @@ import { Page, EmptyState } from '../components/Page'
 import { formatCents } from '../money/cents'
 import { CANDIDATE_FORMATS } from '../import/dates'
 import { previewCsv, mapCsvRows } from '../import/csv'
-import { detectMapping } from '../import/detect'
+import { amountLikeHeaders, checkSignConvention, detectMapping } from '../import/detect'
 import { findMatchingProfile, profileToConfig, saveProfile } from '../import/profiles'
 import { commitImport, type CommitResult } from '../import/commit'
 import type { MappingConfig, RawTable } from '../import/types'
@@ -35,6 +35,28 @@ export function Import() {
   const mapped = useMemo(
     () => (table && config ? mapCsvRows(table, config) : null),
     [table, config],
+  )
+
+  /** A few real values per column, so the user can map by data, not header name. */
+  const samples = useMemo(() => {
+    const out = new Map<string, string>()
+    if (!table) return out
+    table.headers.forEach((h, i) => {
+      const values = table.rows
+        .map((r) => (r[i] ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 3)
+      if (values.length) out.set(h, values.join(' · '))
+    })
+    return out
+  }, [table])
+
+  const signWarning = useMemo(
+    () =>
+      mapped && config
+        ? checkSignConvention(mapped.transactions, config.signConvention, account?.type)
+        : null,
+    [mapped, config, account?.type],
   )
 
   async function onFile(file: File) {
@@ -214,6 +236,7 @@ export function Import() {
               <Field label="Date column">
                 <ColumnSelect
                   headers={table.headers}
+                  samples={samples}
                   value={config.columnMap.date}
                   onChange={(v) => updateColumn({ date: v })}
                 />
@@ -234,6 +257,7 @@ export function Import() {
               <Field label="Description column">
                 <ColumnSelect
                   headers={table.headers}
+                  samples={samples}
                   value={config.columnMap.description}
                   onChange={(v) => updateColumn({ description: v })}
                 />
@@ -243,20 +267,25 @@ export function Import() {
                 <select
                   className={selectCls}
                   value={isSeparate ? 'separate' : 'single'}
-                  onChange={(e) =>
-                    update(
-                      e.target.value === 'separate'
-                        ? {
-                            signConvention: 'separateColumns',
-                            columnMap: {
-                              ...config.columnMap,
-                              debit: config.columnMap.debit ?? table.headers[0],
-                              credit: config.columnMap.credit ?? table.headers[1],
-                            },
-                          }
-                        : { signConvention: 'negativeIsOutflow' },
+                  onChange={(e) => {
+                    if (e.target.value !== 'separate') {
+                      update({ signConvention: 'negativeIsOutflow' })
+                      return
+                    }
+                    // Seed from columns that actually look like money, rather
+                    // than the first two columns (usually date and description).
+                    const money = amountLikeHeaders(table).filter(
+                      (h) => h !== config.columnMap.date && h !== config.columnMap.description,
                     )
-                  }
+                    update({
+                      signConvention: 'separateColumns',
+                      columnMap: {
+                        ...config.columnMap,
+                        debit: config.columnMap.debit ?? money[0] ?? '',
+                        credit: config.columnMap.credit ?? money[1] ?? '',
+                      },
+                    })
+                  }}
                 >
                   <option value="single">Single amount column</option>
                   <option value="separate">Separate debit / credit</option>
@@ -268,6 +297,7 @@ export function Import() {
                   <Field label="Debit (money out)">
                     <ColumnSelect
                       headers={table.headers}
+                      samples={samples}
                       value={config.columnMap.debit ?? ''}
                       onChange={(v) => updateColumn({ debit: v })}
                     />
@@ -275,6 +305,7 @@ export function Import() {
                   <Field label="Credit (money in)">
                     <ColumnSelect
                       headers={table.headers}
+                      samples={samples}
                       value={config.columnMap.credit ?? ''}
                       onChange={(v) => updateColumn({ credit: v })}
                     />
@@ -285,6 +316,7 @@ export function Import() {
                   <Field label="Amount column">
                     <ColumnSelect
                       headers={table.headers}
+                      samples={samples}
                       value={config.columnMap.amount ?? ''}
                       onChange={(v) => updateColumn({ amount: v })}
                     />
@@ -303,8 +335,43 @@ export function Import() {
                   </Field>
                 </>
               )}
+
+              <Field label="Balance column (optional)">
+                <ColumnSelect
+                  headers={table.headers}
+                  samples={samples}
+                  value={config.columnMap.balance ?? ''}
+                  onChange={(v) => updateColumn({ balance: v || undefined })}
+                />
+              </Field>
             </div>
+
+            {(table.preambleRows?.length || table.footerRows?.length) && (
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                Ignored{' '}
+                {table.preambleRows?.length
+                  ? `${table.preambleRows.length} line(s) above the header`
+                  : ''}
+                {table.preambleRows?.length && table.footerRows?.length ? ' and ' : ''}
+                {table.footerRows?.length
+                  ? `${table.footerRows.length} summary line(s) at the end`
+                  : ''}
+                .
+              </p>
+            )}
           </div>
+
+          {signWarning && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              <span>{signWarning.message}</span>
+              <button
+                onClick={() => update({ signConvention: signWarning.suggested })}
+                className="rounded-lg border border-amber-400 px-3 py-1 text-xs font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+              >
+                Flip the signs
+              </button>
+            </div>
+          )}
 
           {/* Preview */}
           {mapped && (
@@ -314,7 +381,7 @@ export function Import() {
                 {mapped.skipped > 0 && (
                   <span className="font-normal text-slate-500 dark:text-slate-400">
                     {' '}
-                    · {mapped.skipped} row(s) skipped (unparseable date/amount)
+                    · {mapped.skipped} row(s) skipped
                   </span>
                 )}
               </h2>
@@ -344,6 +411,31 @@ export function Import() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Naming the skipped rows turns "did I lose data?" into a
+                  glance at a footer line. */}
+              {mapped.skippedRows.length > 0 && (
+                <details className="mt-4 text-sm">
+                  <summary className="cursor-pointer text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                    Why were {mapped.skipped} row(s) skipped?
+                  </summary>
+                  <ul className="mt-2 space-y-1">
+                    {mapped.skippedRows.map((s) => (
+                      <li key={s.rowNumber} className="text-xs text-slate-500 dark:text-slate-400">
+                        <span className="font-medium">Row {s.rowNumber}:</span> {s.reason}
+                        <div className="truncate font-mono text-slate-400 dark:text-slate-500">
+                          {s.cells.join(' | ')}
+                        </div>
+                      </li>
+                    ))}
+                    {mapped.skipped > mapped.skippedRows.length && (
+                      <li className="text-xs text-slate-400 dark:text-slate-500">
+                        …and {mapped.skipped - mapped.skippedRows.length} more.
+                      </li>
+                    )}
+                  </ul>
+                </details>
+              )}
             </div>
           )}
 
@@ -385,12 +477,19 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+/** Truncate a sample string so long descriptions don't blow out the dropdown. */
+function short(s: string, max = 40): string {
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s
+}
+
 function ColumnSelect({
   headers,
+  samples,
   value,
   onChange,
 }: {
   headers: string[]
+  samples?: Map<string, string>
   value: string
   onChange: (v: string) => void
 }) {
@@ -401,11 +500,16 @@ function ColumnSelect({
       onChange={(e) => onChange(e.target.value)}
     >
       <option value="">—</option>
-      {headers.map((h) => (
-        <option key={h} value={h}>
-          {h}
-        </option>
-      ))}
+      {headers.map((h) => {
+        // Showing real values lets the user pick the right column when the
+        // header names are ambiguous ("Trans. Date" vs "Post Date").
+        const sample = samples?.get(h)
+        return (
+          <option key={h} value={h}>
+            {sample ? `${h} — ${short(sample)}` : h}
+          </option>
+        )
+      })}
     </select>
   )
 }

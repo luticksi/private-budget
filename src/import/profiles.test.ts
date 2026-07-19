@@ -52,8 +52,59 @@ describe('built-in import profiles', () => {
 
   it('is idempotent', async () => {
     await ensureProfilesSeeded()
+    const count = await db.importProfiles.count()
     await ensureProfilesSeeded()
-    expect(await db.importProfiles.count()).toBe(1)
+    expect(await db.importProfiles.count()).toBe(count)
+  })
+
+  it('does not duplicate a profile the user already has', async () => {
+    await db.importProfiles.add({
+      name: 'Discover',
+      fileType: 'csv',
+      hasHeader: true,
+      columnMap: { date: 'Trans. Date', description: 'Description', amount: 'Amount' },
+      dateFormat: 'MM/DD/YYYY',
+      signConvention: 'positiveIsOutflow',
+      createdAt: Date.now(),
+    })
+    await ensureProfilesSeeded()
+    expect(await db.importProfiles.where('name').equals('Discover').count()).toBe(1)
+  })
+
+  // Each issuer pins the sign convention that detection can't infer for it.
+  const cases: Array<[string, string[], string]> = [
+    [
+      'Chase (credit card)',
+      ['Transaction Date', 'Post Date', 'Description', 'Category', 'Type', 'Amount', 'Memo'],
+      'negativeIsOutflow',
+    ],
+    [
+      'Chase (checking)',
+      ['Details', 'Posting Date', 'Description', 'Amount', 'Type', 'Balance', 'Check or Slip #'],
+      'negativeIsOutflow',
+    ],
+    [
+      'Discover',
+      ['Trans. Date', 'Post Date', 'Description', 'Amount', 'Category'],
+      'positiveIsOutflow',
+    ],
+    ['Ally Bank', ['Date', 'Time', 'Amount', 'Type', 'Description'], 'negativeIsOutflow'],
+  ]
+
+  it.each(cases)('matches the %s export', async (name, headers, signConvention) => {
+    await ensureProfilesSeeded()
+    const match = await findMatchingProfile(table(headers))
+    expect(match?.name).toBe(name)
+    expect(match?.signConvention).toBe(signConvention)
+  })
+
+  it('matches a profile despite drifted header punctuation', async () => {
+    await ensureProfilesSeeded()
+    // Discover's "Trans. Date" without the period.
+    const match = await findMatchingProfile(
+      table(['Trans Date', 'Post Date', 'Description', 'Amount', 'Category']),
+    )
+    expect(match?.name).toBe('Discover')
   })
 })
 
