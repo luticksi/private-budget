@@ -17,6 +17,14 @@ describe('parseDate', () => {
     expect(parseDate('13/40/2024', 'MM/DD/YYYY')).toBeNull()
     expect(parseDate('not a date', 'MM/DD/YYYY')).toBeNull()
   })
+  it('accepts unpadded month and day for padded formats', () => {
+    // Huntington exports "6/29/26" under what is otherwise MM/DD/YY.
+    expect(parseDate('6/29/26', 'MM/DD/YY')).toBe('2026-06-29')
+    expect(parseDate('1/2/2024', 'MM/DD/YYYY')).toBe('2024-01-02')
+    expect(parseDate('2024-3-5', 'YYYY-MM-DD')).toBe('2024-03-05')
+    // Mixed padding within one column still parses under a single format.
+    expect(parseDate('06/29/26', 'MM/DD/YY')).toBe('2026-06-29')
+  })
 })
 
 describe('stripTime', () => {
@@ -41,6 +49,9 @@ describe('detectDateFormat', () => {
   })
   it('disambiguates day-first when a value exceeds 12', () => {
     expect(detectDateFormat(['13/02/2024', '01/05/2024'])).toBe('DD/MM/YYYY')
+  })
+  it('detects an unpadded two-digit-year column', () => {
+    expect(detectDateFormat(['6/29/26', '6/30/26', '7/1/26'])).toBe('MM/DD/YY')
   })
   it('detects a format despite a stray unparseable value', () => {
     // A footer or label in the date column used to disqualify every format.

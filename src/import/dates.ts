@@ -58,9 +58,12 @@ function buildMatcher(format: string): Matcher {
       case 'YY': pattern += '(\\d{2})'; break
       case 'MMMM':
       case 'MMM': pattern += '([A-Za-z]+)'; break
-      case 'MM': pattern += '(\\d{2})'; break
+      // MM/DD accept an unpadded number too: banks are inconsistent about
+      // zero-padding ("6/29/26" vs "06/29/26"), sometimes within one file, and
+      // a format that rejects half a column is no use to anyone.
+      case 'MM':
       case 'M': pattern += '(\\d{1,2})'; break
-      case 'DD': pattern += '(\\d{2})'; break
+      case 'DD':
       case 'D': pattern += '(\\d{1,2})'; break
     }
     last = m.index + tok.length
