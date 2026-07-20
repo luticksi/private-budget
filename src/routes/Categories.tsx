@@ -1,12 +1,18 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import type { Category, CategoryKind, RuleField, RuleMatch } from '../db/schema'
+import type { Category, CategoryKind, Rule, RuleField, RuleMatch } from '../db/schema'
 import { Page } from '../components/Page'
 import { CategoryPicker } from '../components/CategoryPicker'
+import { SortHeader } from '../components/SortHeader'
+import { compareText, nextSort, sortRows, type Sort } from '../components/sort'
 import { useCategoryGroups, useCategoryMap, categoryPath } from '../categorize/useCategories'
 
 const RULES_PER_PAGE = 50
+
+type RuleSortKey = 'pattern' | 'match' | 'category' | 'source' | 'priority'
+/** Priority is a ranking, so its first click should show the top rules first. */
+const RULE_DESC_FIRST: RuleSortKey[] = ['priority']
 
 const inputCls =
   'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
@@ -30,16 +36,15 @@ export function Categories() {
 
 function RulesSection() {
   const map = useCategoryMap()
-  const rules = useLiveQuery(
-    () => db.rules.toArray().then((rs) => rs.sort((a, b) => b.priority - a.priority)),
-    [],
-  )
+  const rules = useLiveQuery(() => db.rules.toArray(), [])
   const [search, setSearch] = useState('')
   const [pattern, setPattern] = useState('')
   const [field, setField] = useState<RuleField>('rawDescription')
   const [match, setMatch] = useState<RuleMatch>('contains')
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [page, setPage] = useState(0)
+  // Priority order is the meaningful default: it's the order rules actually run in.
+  const [sort, setSort] = useState<Sort<RuleSortKey>>({ key: 'priority', dir: 'desc' })
 
   const filtered = useMemo(
     () =>
@@ -49,10 +54,22 @@ function RulesSection() {
     [rules, search],
   )
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / RULES_PER_PAGE))
+  const sorted = useMemo(() => {
+    const comparators: Record<RuleSortKey, (a: Rule, b: Rule) => number> = {
+      pattern: (a, b) => compareText(a.pattern, b.pattern),
+      match: (a, b) => compareText(a.match + a.field, b.match + b.field),
+      category: (a, b) =>
+        compareText(categoryPath(map, a.categoryId), categoryPath(map, b.categoryId)),
+      source: (a, b) => compareText(a.source, b.source),
+      priority: (a, b) => a.priority - b.priority,
+    }
+    return sortRows(filtered, sort.dir, comparators[sort.key])
+  }, [filtered, sort, map])
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / RULES_PER_PAGE))
   // Deleting or filtering can shrink the list out from under the current page.
   const currentPage = Math.min(page, pageCount - 1)
-  const visible = filtered.slice(
+  const visible = sorted.slice(
     currentPage * RULES_PER_PAGE,
     currentPage * RULES_PER_PAGE + RULES_PER_PAGE,
   )
@@ -121,10 +138,25 @@ function RulesSection() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <tr>
-              <th className="px-4 py-2 font-medium">Pattern</th>
-              <th className="px-4 py-2 font-medium">Match</th>
-              <th className="px-4 py-2 font-medium">Category</th>
-              <th className="px-4 py-2 font-medium">Source</th>
+              {(
+                [
+                  ['pattern', 'Pattern', 'left'],
+                  ['match', 'Match', 'left'],
+                  ['category', 'Category', 'left'],
+                  ['source', 'Source', 'left'],
+                  ['priority', 'Priority', 'right'],
+                ] as const
+              ).map(([key, label, align]) => (
+                <SortHeader
+                  key={key}
+                  sort={sort}
+                  sortKey={key}
+                  align={align}
+                  onSort={(k) => setSort((s) => nextSort(s, k, RULE_DESC_FIRST))}
+                >
+                  {label}
+                </SortHeader>
+              ))}
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
@@ -140,6 +172,9 @@ function RulesSection() {
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {r.source}
                   </span>
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">
+                  {r.priority}
                 </td>
                 <td className="px-4 py-2 text-right">
                   <button
@@ -162,8 +197,8 @@ function RulesSection() {
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
         <p>
-          {filtered.length} rule(s){search ? ' matching filter' : ''}
-          {filtered.length > 0 && (
+          {sorted.length} rule(s){search ? ' matching filter' : ''}
+          {sorted.length > 0 && (
             <>
               {' · showing '}
               {currentPage * RULES_PER_PAGE + 1}–
