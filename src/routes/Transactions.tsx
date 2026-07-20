@@ -53,6 +53,9 @@ export function Transactions() {
   const [sort, setSort] = useState<Sort<SortKey>>({ key: 'date', dir: 'desc' })
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set())
   const [page, setPage] = useState(0)
+  // Which merchant cell is being renamed inline, and its working value.
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
 
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
   const categoryMap = useCategoryMap()
@@ -163,6 +166,20 @@ export function Transactions() {
     setSelected(new Set())
   }
 
+  function startEdit(t: Transaction) {
+    setEditingId(t.id!)
+    setEditValue(merchantOf(t))
+  }
+
+  async function saveEdit(t: Transaction) {
+    const value = editValue.trim()
+    setEditingId(null)
+    if (value === merchantOf(t)) return
+    // The merchant is what the list shows and what category-learning groups by,
+    // so an edited name flows straight into "apply to other X transactions".
+    await db.transactions.update(t.id!, { normalizedMerchant: value, updatedAt: Date.now() })
+  }
+
   async function setCategory(tx: Transaction, categoryId: number | null) {
     await db.transactions.update(tx.id!, { categoryId, updatedAt: Date.now() })
 
@@ -199,7 +216,7 @@ export function Transactions() {
   return (
     <Page
       title="Transactions"
-      description="Search, filter, and categorize. Click a category to change it, or a column header to sort by it."
+      description="Search, filter, and categorize. Click a merchant name to rename it, a category to change it, or a column header to sort by it."
     >
       <div className="mb-4 flex flex-wrap gap-3">
         <input
@@ -336,9 +353,32 @@ export function Transactions() {
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-slate-500 dark:text-slate-400">{t.date}</td>
                 <td className="px-4 py-2">
-                  <div className="font-medium text-slate-900 dark:text-slate-100">
-                    {merchantOf(t)}
-                  </div>
+                  {editingId === t.id ? (
+                    <input
+                      autoFocus
+                      className="w-full rounded-md border border-sky-400 px-2 py-1 text-sm font-medium focus:outline-none dark:border-sky-500 dark:bg-slate-800 dark:text-slate-100"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => void saveEdit(t)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void saveEdit(t)
+                        else if (e.key === 'Escape') setEditingId(null)
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEdit(t)}
+                      title="Click to rename"
+                      className="rounded text-left font-medium text-slate-900 hover:underline focus:outline-none focus:ring-2 focus:ring-sky-400 dark:text-slate-100"
+                    >
+                      {merchantOf(t) || (
+                        <span className="italic text-slate-400 dark:text-slate-500">
+                          (no description — click to name)
+                        </span>
+                      )}
+                    </button>
+                  )}
                   {transactionDetail(t) && (
                     <div className="text-xs text-slate-400 dark:text-slate-500">
                       {transactionDetail(t)}
