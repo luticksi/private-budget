@@ -4,6 +4,7 @@ import { ensureSeeded } from '../db/seed'
 import { ensureRulesSeeded } from '../categorize/starterDictionary'
 import { ensureProfilesSeeded } from '../import/profiles'
 import { recategorizeUncategorized } from '../categorize/engine'
+import { getNeverPromptMerchants, setNeverPromptMerchants } from '../categorize/neverPrompt'
 import { detectTransfers } from '../transfers/detect'
 import {
   getStorageEstimate,
@@ -19,6 +20,7 @@ export function Settings() {
   const [error, setError] = useState<string | null>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [usage, setUsage] = useState<string | null>(null)
+  const [neverPrompt, setNeverPrompt] = useState('')
 
   useEffect(() => {
     void (async () => {
@@ -27,6 +29,21 @@ export function Settings() {
       if (est) setUsage(formatBytes(est.usage))
     })()
   }, [status])
+
+  useEffect(() => {
+    void (async () => {
+      setNeverPrompt((await getNeverPromptMerchants()).join('\n'))
+    })()
+  }, [])
+
+  async function onSaveNeverPrompt() {
+    setError(null)
+    const list = neverPrompt.split('\n')
+    await setNeverPromptMerchants(list)
+    // Reflect the cleaned (trimmed, de-duplicated) list back into the box.
+    setNeverPrompt((await getNeverPromptMerchants()).join('\n'))
+    setStatus('Saved. These merchants will no longer prompt to apply a category to others.')
+  }
 
   async function onRequestPersist() {
     const ok = await requestPersistentStorage()
@@ -157,6 +174,27 @@ export function Settings() {
               Detect transfers
             </button>
           </div>
+        </Card>
+
+        <Card
+          title="Never ask to apply these merchants to others"
+          body={
+            "When you categorize a transaction, the app offers to apply that category to every other transaction from the same merchant. Add merchants here to skip that prompt — handy for checks (often \"DDA CHECK\"), ATM withdrawals, or anything where each entry is really its own thing. One per line; matching is case-insensitive and matches any merchant that contains the text."
+          }
+        >
+          <textarea
+            className="mb-3 h-28 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            placeholder={'DDA Check\nATM Withdrawal'}
+            value={neverPrompt}
+            onChange={(e) => setNeverPrompt(e.target.value)}
+            aria-label="Merchants that never prompt to apply a category to others"
+          />
+          <button
+            onClick={onSaveNeverPrompt}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+          >
+            Save list
+          </button>
         </Card>
 
         <Card

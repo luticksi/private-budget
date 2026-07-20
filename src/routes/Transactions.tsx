@@ -11,6 +11,7 @@ import { compareText, nextSort, sortRows, type Sort } from '../components/sort'
 import { monthRange } from '../reports/aggregate'
 import { useCategoryMap, categoryPath } from '../categorize/useCategories'
 import { applyMerchantCategory, countByMerchant, upsertLearnedRule } from '../categorize/learn'
+import { getNeverPromptMerchants, isNeverPrompt } from '../categorize/neverPrompt'
 import type { Transaction } from '../db/schema'
 
 const PAGE_SIZE = 100
@@ -183,9 +184,12 @@ export function Transactions() {
   async function setCategory(tx: Transaction, categoryId: number | null) {
     await db.transactions.update(tx.id!, { categoryId, updatedAt: Date.now() })
 
-    // Offer to learn and bulk-apply for other transactions from this merchant.
+    // Offer to learn and bulk-apply for other transactions from this merchant,
+    // unless the user has muted this merchant (e.g. checks, which all share one
+    // descriptor — one stray "yes" would recategorize every check at once).
     const merchant = tx.normalizedMerchant
     if (categoryId == null || !merchant) return
+    if (isNeverPrompt(merchant, await getNeverPromptMerchants())) return
     const total = await countByMerchant(merchant)
     const others = total - 1
     if (others > 0) {
