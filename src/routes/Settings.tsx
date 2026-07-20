@@ -26,7 +26,7 @@ export function Settings() {
     void (async () => {
       setPersisted(await isStoragePersisted())
       const est = await getStorageEstimate()
-      if (est) setUsage(formatBytes(est.usage))
+      if (est) setUsage(formatBytes(est.dataUsage))
     })()
   }, [status])
 

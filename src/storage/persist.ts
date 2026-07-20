@@ -25,11 +25,33 @@ export async function isStoragePersisted(): Promise<boolean> {
   }
 }
 
-export async function getStorageEstimate(): Promise<{ usage: number; quota: number } | null> {
+/**
+ * `StorageManager.estimate().usage` reports usage for the *entire origin*: our
+ * IndexedDB data plus the service worker's Cache Storage (the PWA precache of
+ * all app assets) plus browser-added padding to defeat storage fingerprinting.
+ * For a small dataset the cache + padding dwarf the actual data, so `usage`
+ * badly overstates "your data on this device".
+ *
+ * Chromium exposes a per-store breakdown in the non-standard `usageDetails`;
+ * we surface `usageDetails.indexedDB` as the data figure when available and
+ * fall back to the whole-origin `usage` otherwise.
+ */
+export async function getStorageEstimate(): Promise<{
+  usage: number
+  quota: number
+  dataUsage: number
+} | null> {
   if (!navigator.storage?.estimate) return null
   try {
     const e = await navigator.storage.estimate()
-    return { usage: e.usage ?? 0, quota: e.quota ?? 0 }
+    const usage = e.usage ?? 0
+    const details = (e as StorageEstimate & { usageDetails?: { indexedDB?: number } })
+      .usageDetails
+    return {
+      usage,
+      quota: e.quota ?? 0,
+      dataUsage: details?.indexedDB ?? usage,
+    }
   } catch {
     return null
   }
