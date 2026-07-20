@@ -63,6 +63,7 @@ export async function commitImport(input: CommitInput): Promise<CommitResult> {
         date: p.date,
         amountCents: p.amountCents,
         description: p.rawDescription,
+        checkNumber: p.checkNumber,
       })
 
       // Skip a hash only up to the number of times it already exists, so
@@ -98,6 +99,8 @@ export async function commitImport(input: CommitInput): Promise<CommitResult> {
         dedupHash,
         fitId: p.fitId ?? null,
         balanceCents: p.balanceCents ?? null,
+        memo: p.memo ?? null,
+        checkNumber: p.checkNumber ?? null,
         createdAt: now,
         updatedAt: now,
       })

@@ -5,6 +5,10 @@ export interface ParsedTransaction {
   date: string // ISO "YYYY-MM-DD"
   amountCents: number // signed: negative = outflow, positive = inflow
   rawDescription: string
+  /** The bank's secondary memo/type column, when one is mapped. */
+  memo?: string
+  /** The statement's check/reference number, when one is mapped. */
+  checkNumber?: string
   fitId?: string
   balanceCents?: number
 }

@@ -1,5 +1,4 @@
 import { db } from '../db'
-import { categoryIdByName } from '../db/seed'
 import type { Rule, RuleMatch } from '../db/schema'
 
 /**
@@ -826,9 +825,21 @@ export async function ensureRulesSeeded(): Promise<void> {
   if (await db.meta.get(RULES_SEED_FLAG)) return
 
   const now = Date.now()
+
+  // Resolve every category name from a single read of the table. Looking each
+  // entry up on its own meant ~700 sequential full scans, which took seconds —
+  // long enough that a first-run import could commit before a single rule
+  // existed and land entirely uncategorized, with no error anywhere.
+  // Duplicate names keep the first match, as a name lookup would.
+  const idByName = new Map<string, number>()
+  for (const c of await db.categories.toArray()) {
+    const key = c.name.toLowerCase()
+    if (!idByName.has(key)) idByName.set(key, c.id!)
+  }
+
   const rules: Rule[] = []
   for (const entry of STARTER_DICTIONARY) {
-    const categoryId = await categoryIdByName(entry.category)
+    const categoryId = idByName.get(entry.category.toLowerCase())
     if (categoryId == null) continue
     const match = entry.match ?? 'contains'
     rules.push({

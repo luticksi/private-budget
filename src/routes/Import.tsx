@@ -9,6 +9,7 @@ import { previewCsv, mapCsvRows } from '../import/csv'
 import { amountLikeHeaders, checkSignConvention, detectMapping } from '../import/detect'
 import { findMatchingProfile, profileToConfig, saveProfile } from '../import/profiles'
 import { commitImport, type CommitResult } from '../import/commit'
+import { transactionDetail } from '../components/transactionDetail'
 import type { MappingConfig, RawTable } from '../import/types'
 import type { SignConvention } from '../db/schema'
 
@@ -262,6 +263,22 @@ export function Import() {
                   onChange={(v) => updateColumn({ description: v })}
                 />
               </Field>
+              <Field label="Memo column (optional)">
+                <ColumnSelect
+                  headers={table.headers}
+                  samples={samples}
+                  value={config.columnMap.memo ?? ''}
+                  onChange={(v) => updateColumn({ memo: v || undefined })}
+                />
+              </Field>
+              <Field label="Check number column (optional)">
+                <ColumnSelect
+                  headers={table.headers}
+                  samples={samples}
+                  value={config.columnMap.checkNumber ?? ''}
+                  onChange={(v) => updateColumn({ checkNumber: v || undefined })}
+                />
+              </Field>
 
               <Field label="Amount columns">
                 <select
@@ -397,7 +414,14 @@ export function Import() {
                   {mapped.transactions.slice(0, 8).map((t, i) => (
                     <tr key={i}>
                       <td className="py-1 text-slate-500 dark:text-slate-400">{t.date}</td>
-                      <td className="py-1">{t.rawDescription}</td>
+                      <td className="py-1">
+                        {t.rawDescription}
+                        {transactionDetail(t) && (
+                          <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+                            {transactionDetail(t)}
+                          </span>
+                        )}
+                      </td>
                       <td
                         className={`py-1 text-right ${
                           t.amountCents < 0

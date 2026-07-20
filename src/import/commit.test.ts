@@ -60,6 +60,28 @@ describe('commitImport', () => {
     expect(await db.transactions.count()).toBe(5)
   })
 
+  it('keeps same-day, same-amount checks apart by check number', async () => {
+    const accountId = await db.accounts.add({
+      name: 'Test',
+      type: 'checking',
+      currency: 'USD',
+      createdAt: Date.now(),
+    })
+    const checks: ParsedTransaction[] = [
+      { date: '2024-05-04', amountCents: -330000, rawDescription: 'DDA CHECK', checkNumber: '1490' },
+      { date: '2024-05-04', amountCents: -330000, rawDescription: 'DDA CHECK', checkNumber: '1491' },
+    ]
+    const res = await commitImport({ accountId, currency: 'USD', fileName: 'a.csv', transactions: checks })
+    // Without the check number these would collide into one row.
+    expect(res.added).toBe(2)
+    expect(res.duplicates).toBe(0)
+
+    // Re-importing the same checks recognizes both as duplicates.
+    const again = await commitImport({ accountId, currency: 'USD', fileName: 'b.csv', transactions: checks })
+    expect(again.added).toBe(0)
+    expect(again.duplicates).toBe(2)
+  })
+
   it('normalizes the merchant when storing', async () => {
     const accountId = await db.accounts.add({
       name: 'Test',

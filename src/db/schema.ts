@@ -77,6 +77,19 @@ export interface Transaction {
    * provided one. Not indexed, so no migration is needed; older rows omit it.
    */
   balanceCents?: number | null
+  /**
+   * The bank's secondary "memo"/type column (e.g. "DDA CHECK", "IOD INTEREST
+   * PAID"), when the statement has one. Preserved so a check or interest row
+   * carries meaning even when the primary description is blank. Not indexed, so
+   * no migration is needed; older rows omit it.
+   */
+  memo?: string | null
+  /**
+   * The statement's check/reference number (e.g. "1490"), when one is mapped.
+   * Distinguishes two same-day, same-amount checks that would otherwise dedup
+   * to the same row. Not indexed, so no migration is needed.
+   */
+  checkNumber?: string | null
   notes?: string
   createdAt: number
   updatedAt: number
@@ -100,6 +113,14 @@ export interface ColumnMap {
   credit?: string // used with separateColumns
   /** Optional running-balance column, kept for later reconciliation. */
   balance?: string
+  /**
+   * Optional secondary description ("memo"/type) column. When the primary
+   * description cell is blank, its value is used instead so rows like checks
+   * and interest still carry meaning. Also stored on the transaction.
+   */
+  memo?: string
+  /** Optional check/reference-number column, kept to tell same-day checks apart. */
+  checkNumber?: string
 }
 
 export interface ImportProfile {

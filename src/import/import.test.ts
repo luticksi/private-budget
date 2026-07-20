@@ -160,6 +160,63 @@ describe('mapCsvRows', () => {
     expect(result.transactions[0].amountCents).toBe(575)
   })
 
+  it('falls back to the memo column when the description is blank', () => {
+    const withMemo: RawTable = {
+      headers: ['Date', 'Description', 'Type', 'Amount'],
+      rows: [
+        ['05/04/2026', 'WINDSTREAM', 'ACH DEBIT', '-82.92'],
+        ['05/04/2026', '', 'DDA CHECK', '-3300.00'],
+        ['05/04/2026', '', 'IOD INTEREST PAID', '2.30'],
+      ],
+      delimiter: ',',
+      hasHeader: true,
+    }
+    const result = mapCsvRows(withMemo, {
+      columnMap: { date: 'Date', description: 'Description', memo: 'Type', amount: 'Amount' },
+      dateFormat: 'MM/DD/YYYY',
+      signConvention: 'negativeIsOutflow',
+    })
+    // A present description wins; the memo is still kept alongside it.
+    expect(result.transactions[0]).toMatchObject({
+      rawDescription: 'WINDSTREAM',
+      memo: 'ACH DEBIT',
+    })
+    // A blank description falls back to the memo for the working description.
+    expect(result.transactions[1]).toMatchObject({
+      rawDescription: 'DDA CHECK',
+      memo: 'DDA CHECK',
+    })
+    expect(result.transactions[2].rawDescription).toBe('IOD INTEREST PAID')
+  })
+
+  it('maps a check-number column, treating "0" as no check', () => {
+    const withChecks: RawTable = {
+      headers: ['Date', 'Check', 'Description', 'Type', 'Amount'],
+      rows: [
+        ['05/04/2026', '1490', '', 'DDA CHECK', '-3300.00'],
+        ['05/06/2026', '1491', '', 'FED IMAGE CHECK', '-80.00'],
+        ['05/04/2026', '0', 'WINDSTREAM', 'ACH DEBIT', '-82.92'],
+      ],
+      delimiter: ',',
+      hasHeader: true,
+    }
+    const result = mapCsvRows(withChecks, {
+      columnMap: {
+        date: 'Date',
+        description: 'Description',
+        memo: 'Type',
+        checkNumber: 'Check',
+        amount: 'Amount',
+      },
+      dateFormat: 'MM/DD/YYYY',
+      signConvention: 'negativeIsOutflow',
+    })
+    expect(result.transactions[0].checkNumber).toBe('1490')
+    expect(result.transactions[1].checkNumber).toBe('1491')
+    // "0" is a non-check row, so no check number is attached.
+    expect(result.transactions[2].checkNumber).toBeUndefined()
+  })
+
   it('handles separate debit/credit columns', () => {
     const sep: RawTable = {
       headers: ['Date', 'Description', 'Debit', 'Credit'],
@@ -365,5 +422,24 @@ describe('computeDedupHash', () => {
     const base = { accountId: 1, date: '2024-01-02', amountCents: -575, description: 'STARBUCKS' }
     expect(computeDedupHash(base)).toBe(computeDedupHash(base))
     expect(computeDedupHash(base)).not.toBe(computeDedupHash({ ...base, amountCents: -576 }))
+  })
+
+  it('keeps the pre-check-number hash when no check number is present', () => {
+    // Existing transactions have no check number; their hash must be unchanged
+    // so a re-import still recognizes them as duplicates.
+    const base = { accountId: 1, date: '2024-01-02', amountCents: -575, description: 'STARBUCKS' }
+    expect(computeDedupHash({ ...base, checkNumber: undefined })).toBe(computeDedupHash(base))
+    expect(computeDedupHash({ ...base, checkNumber: '' })).toBe(computeDedupHash(base))
+  })
+
+  it('distinguishes same-day, same-amount checks by check number', () => {
+    const check = { accountId: 1, date: '2024-05-04', amountCents: -330000, description: 'DDA CHECK' }
+    expect(computeDedupHash({ ...check, checkNumber: '1490' })).not.toBe(
+      computeDedupHash({ ...check, checkNumber: '1491' }),
+    )
+    // A check number also separates a check from an otherwise-identical row.
+    expect(computeDedupHash({ ...check, checkNumber: '1490' })).not.toBe(
+      computeDedupHash(check),
+    )
   })
 })

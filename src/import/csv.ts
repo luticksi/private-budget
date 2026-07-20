@@ -199,7 +199,16 @@ export function mapCsvRows(table: RawTable, config: MappingConfig): MapResult {
     const dateCell = get(config.columnMap.date)
     const date = parseDate(dateCell, config.dateFormat)
     const amountCents = rowAmountCents(get, config)
-    const rawDescription = get(config.columnMap.description).trim()
+    const descCell = get(config.columnMap.description).trim()
+    const memo = config.columnMap.memo ? get(config.columnMap.memo).trim() : ''
+    const checkNumber = config.columnMap.checkNumber
+      ? get(config.columnMap.checkNumber).trim()
+      : ''
+    // Fall back to the memo/type column when the primary description is blank,
+    // so checks and interest rows aren't stored as empty. Done here (rather than
+    // downstream) so merchant normalization, categorization, dedup, search and
+    // the preview all see the same non-blank text.
+    const rawDescription = descCell || memo
 
     if (!date || amountCents == null) {
       skipped++
@@ -215,6 +224,9 @@ export function mapCsvRows(table: RawTable, config: MappingConfig): MapResult {
     }
 
     const tx: ParsedTransaction = { date, amountCents, rawDescription }
+    if (memo) tx.memo = memo
+    // "0" is how many exports flag a non-check row; treat it as no check number.
+    if (checkNumber && checkNumber !== '0') tx.checkNumber = checkNumber
     if (config.columnMap.balance) {
       const balanceCents = parseAmountToCents(get(config.columnMap.balance))
       if (balanceCents != null) tx.balanceCents = balanceCents

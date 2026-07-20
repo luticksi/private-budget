@@ -23,12 +23,17 @@ export function computeDedupHash(parts: {
   date: string
   amountCents: number
   description: string
+  checkNumber?: string | null
 }): string {
   const key = [
     parts.accountId,
     parts.date,
     parts.amountCents,
     parts.description.trim().toLowerCase().replace(/\s+/g, ' '),
-  ].join('|')
-  return fnv1a(key)
+  ]
+  // Appended only when present, so an existing transaction (or any row without a
+  // check number) keeps the exact hash it had before this field existed — a
+  // re-import still recognizes it as a duplicate.
+  if (parts.checkNumber) key.push(`chk:${parts.checkNumber}`)
+  return fnv1a(key.join('|'))
 }

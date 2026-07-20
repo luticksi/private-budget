@@ -21,6 +21,46 @@ export function filterTransactions(txs: Transaction[], f: ReportFilters): Transa
   })
 }
 
+/** Inclusive ISO date bounds covering a whole "YYYY-MM" month. */
+export function monthRange(month: string): { from: string; to: string } {
+  const [y, m] = month.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate() // day 0 of the next month
+  return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` }
+}
+
+/** The calendar month before `month`, as "YYYY-MM". */
+export function previousMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * The `count` months ending at `month` inclusive, oldest first. It's contiguous
+ * by construction, so zipping a sparse series onto it yields zeros for the
+ * quiet months rather than a gap that would distort a sparkline's shape.
+ */
+export function trailingMonths(month: string, count: number): string[] {
+  const out: string[] = []
+  let m = month
+  for (let i = 0; i < count; i++) {
+    out.unshift(m)
+    m = previousMonth(m)
+  }
+  return out
+}
+
+/**
+ * Percent change from `prev` to `curr`, or null when there's no usable
+ * baseline — a zero prior value makes the change infinite, not "100%".
+ * Dividing by |prev| keeps the sign meaningful when the baseline is negative:
+ * a net of -100 rising to -50 reads as +50%, which is the improvement it is.
+ */
+export function percentChange(curr: number, prev: number): number | null {
+  if (prev === 0) return null
+  return Math.round(((curr - prev) / Math.abs(prev)) * 100)
+}
+
 export type TxnClass = 'income' | 'spending' | 'excluded'
 
 /**

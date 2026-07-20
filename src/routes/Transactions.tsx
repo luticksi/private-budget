@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import { formatCents } from '../money/cents'
 import { Page, EmptyState } from '../components/Page'
 import { CategoryPicker } from '../components/CategoryPicker'
 import { SortHeader } from '../components/SortHeader'
+import { transactionDetail } from '../components/transactionDetail'
 import { compareText, nextSort, sortRows, type Sort } from '../components/sort'
+import { monthRange } from '../reports/aggregate'
 import { useCategoryMap, categoryPath } from '../categorize/useCategories'
 import { applyMerchantCategory, countByMerchant, upsertLearnedRule } from '../categorize/learn'
 import type { Transaction } from '../db/schema'
@@ -20,10 +22,34 @@ const DESC_FIRST: SortKey[] = ['date', 'amount']
 const pagerCls =
   'rounded-md border border-slate-200 px-2 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
 
+const MONTH_RE = /^\d{4}-\d{2}$/
+
+/** Filters come from the URL, so a hand-edited param has to be treated as untrusted. */
+function readAccount(params: URLSearchParams): number | 'all' {
+  const id = Number(params.get('account'))
+  return Number.isInteger(id) && id > 0 ? id : 'all'
+}
+
+function readMonth(params: URLSearchParams): string | 'all' {
+  const m = params.get('month')
+  return m && MONTH_RE.test(m) ? m : 'all'
+}
+
+function monthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })
+}
+
 export function Transactions() {
-  const [search, setSearch] = useState('')
-  const [accountId, setAccountId] = useState<number | 'all'>('all')
-  const [uncategorizedOnly, setUncategorizedOnly] = useState(false)
+  // Filters live in the URL so the dashboard can deep-link into an exact slice
+  // ("July's uncategorized Amex rows") and the back button behaves. Sort, page,
+  // and selection stay local — they're view state, not a place worth linking to.
+  const [params, setParams] = useSearchParams()
+  const search = params.get('q') ?? ''
+  const accountId = readAccount(params)
+  const month = readMonth(params)
+  const uncategorizedOnly = params.get('uncategorized') === '1'
+
   const [sort, setSort] = useState<Sort<SortKey>>({ key: 'date', dir: 'desc' })
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set())
   const [page, setPage] = useState(0)
@@ -31,6 +57,28 @@ export function Transactions() {
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
   const categoryMap = useCategoryMap()
   const transactions = useLiveQuery(() => db.transactions.toArray(), [])
+
+  function setFilter(key: string, value: string | null) {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(key, value)
+        else next.delete(key)
+        return next
+      },
+      { replace: true },
+    )
+    setPage(0)
+  }
+
+  const hasFilters =
+    search !== '' || accountId !== 'all' || month !== 'all' || uncategorizedOnly
+
+  /** Newest first — the month you'd reach for is almost always a recent one. */
+  const months = useMemo(
+    () => [...new Set((transactions ?? []).map((t) => t.date.slice(0, 7)))].sort().reverse(),
+    [transactions],
+  )
 
   /** A transaction's "source" is the account it was imported into. */
   const accountNames = useMemo(
@@ -43,16 +91,20 @@ export function Transactions() {
   const filtered = useMemo(() => {
     if (!transactions) return []
     const q = search.trim().toLowerCase()
+    const range = month === 'all' ? null : monthRange(month)
     return transactions.filter((t) => {
       if (accountId !== 'all' && t.accountId !== accountId) return false
+      if (range && (t.date < range.from || t.date > range.to)) return false
       if (uncategorizedOnly && t.categoryId != null) return false
       if (!q) return true
       return (
         t.rawDescription.toLowerCase().includes(q) ||
-        t.normalizedMerchant.toLowerCase().includes(q)
+        t.normalizedMerchant.toLowerCase().includes(q) ||
+        (t.memo?.toLowerCase().includes(q) ?? false) ||
+        (t.checkNumber?.toLowerCase().includes(q) ?? false)
       )
     })
-  }, [transactions, search, accountId, uncategorizedOnly])
+  }, [transactions, search, accountId, month, uncategorizedOnly])
 
   const sorted = useMemo(() => {
     const comparators: Record<SortKey, (a: Transaction, b: Transaction) => number> = {
@@ -154,18 +206,13 @@ export function Transactions() {
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           placeholder="Search description or merchant…"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(0)
-          }}
+          onChange={(e) => setFilter('q', e.target.value)}
         />
         <select
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           value={accountId}
-          onChange={(e) => {
-            setAccountId(e.target.value === 'all' ? 'all' : Number(e.target.value))
-            setPage(0)
-          }}
+          onChange={(e) => setFilter('account', e.target.value === 'all' ? null : e.target.value)}
+          aria-label="Source"
         >
           <option value="all">All sources</option>
           {accounts?.map((a) => (
@@ -174,18 +221,39 @@ export function Transactions() {
             </option>
           ))}
         </select>
+        <select
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          value={month}
+          onChange={(e) => setFilter('month', e.target.value === 'all' ? null : e.target.value)}
+          aria-label="Month"
+        >
+          <option value="all">All time</option>
+          {months.map((m) => (
+            <option key={m} value={m}>
+              {monthLabel(m)}
+            </option>
+          ))}
+        </select>
         <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <input
             type="checkbox"
             className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-800"
             checked={uncategorizedOnly}
-            onChange={(e) => {
-              setUncategorizedOnly(e.target.checked)
-              setPage(0)
-            }}
+            onChange={(e) => setFilter('uncategorized', e.target.checked ? '1' : null)}
           />
           Uncategorized only
         </label>
+        {hasFilters && (
+          <button
+            onClick={() => {
+              setParams({}, { replace: true })
+              setPage(0)
+            }}
+            className="text-sm font-medium text-slate-500 hover:underline dark:text-slate-400"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {selected.size > 0 && (
@@ -271,6 +339,11 @@ export function Transactions() {
                   <div className="font-medium text-slate-900 dark:text-slate-100">
                     {merchantOf(t)}
                   </div>
+                  {transactionDetail(t) && (
+                    <div className="text-xs text-slate-400 dark:text-slate-500">
+                      {transactionDetail(t)}
+                    </div>
+                  )}
                   {t.isTransfer && (
                     <span className="text-xs text-amber-600 dark:text-amber-400">transfer</span>
                   )}

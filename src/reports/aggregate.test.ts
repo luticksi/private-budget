@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { spendingByCategory, monthlyTrend, topMerchants, totals } from './aggregate'
+import {
+  spendingByCategory,
+  monthlyTrend,
+  monthRange,
+  percentChange,
+  previousMonth,
+  topMerchants,
+  totals,
+  trailingMonths,
+} from './aggregate'
 import type { Category, Transaction } from '../db/schema'
 
 const categories = new Map<number, Category>([
@@ -116,5 +125,48 @@ describe('topMerchants & totals', () => {
   })
   it('computes totals', () => {
     expect(totals(txs, categories)).toEqual({ spendCents: 3500, incomeCents: 3000, netCents: -500 })
+  })
+})
+
+describe('month helpers', () => {
+  it('covers a whole month, including short and leap-year February', () => {
+    expect(monthRange('2024-01')).toEqual({ from: '2024-01-01', to: '2024-01-31' })
+    expect(monthRange('2023-02')).toEqual({ from: '2023-02-01', to: '2023-02-28' })
+    expect(monthRange('2024-02')).toEqual({ from: '2024-02-01', to: '2024-02-29' })
+    expect(monthRange('2024-04')).toEqual({ from: '2024-04-01', to: '2024-04-30' })
+  })
+
+  it('steps back across a year boundary', () => {
+    expect(previousMonth('2024-03')).toBe('2024-02')
+    expect(previousMonth('2024-01')).toBe('2023-12')
+  })
+})
+
+describe('percentChange', () => {
+  it('reports the change relative to the prior value', () => {
+    expect(percentChange(150, 100)).toBe(50)
+    expect(percentChange(80, 100)).toBe(-20)
+    expect(percentChange(100, 100)).toBe(0)
+  })
+
+  it('has no answer when there is no baseline to compare against', () => {
+    expect(percentChange(500, 0)).toBeNull()
+  })
+
+  it('treats a negative baseline improving as a rise', () => {
+    // Net went from -$1.00 to -$0.50 — half the shortfall, so up 50%.
+    expect(percentChange(-50, -100)).toBe(50)
+    expect(percentChange(-200, -100)).toBe(-100)
+  })
+})
+
+describe('trailingMonths', () => {
+  it('returns a contiguous window ending at the given month, oldest first', () => {
+    expect(trailingMonths('2024-03', 4)).toEqual(['2023-12', '2024-01', '2024-02', '2024-03'])
+  })
+
+  it('handles the degenerate window sizes', () => {
+    expect(trailingMonths('2024-03', 1)).toEqual(['2024-03'])
+    expect(trailingMonths('2024-03', 0)).toEqual([])
   })
 })
