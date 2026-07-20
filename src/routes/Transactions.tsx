@@ -132,6 +132,7 @@ export function Transactions() {
                   <CategoryPicker
                     value={t.categoryId}
                     onChange={(cid) => setCategory(t, cid)}
+                    allowParents
                   />
                 </td>
                 <td

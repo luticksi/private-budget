@@ -6,8 +6,13 @@ import { Page } from '../components/Page'
 import { CategoryPicker } from '../components/CategoryPicker'
 import { useCategoryGroups, useCategoryMap, categoryPath } from '../categorize/useCategories'
 
+const RULES_PER_PAGE = 50
+
 const inputCls =
   'rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
+
+const pagerCls =
+  'rounded-md border border-slate-200 px-2 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
 
 export function Categories() {
   return (
@@ -34,6 +39,7 @@ function RulesSection() {
   const [field, setField] = useState<RuleField>('rawDescription')
   const [match, setMatch] = useState<RuleMatch>('contains')
   const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
 
   const filtered = useMemo(
     () =>
@@ -41,6 +47,14 @@ function RulesSection() {
         search ? r.pattern.includes(search.toLowerCase()) : true,
       ),
     [rules, search],
+  )
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / RULES_PER_PAGE))
+  // Deleting or filtering can shrink the list out from under the current page.
+  const currentPage = Math.min(page, pageCount - 1)
+  const visible = filtered.slice(
+    currentPage * RULES_PER_PAGE,
+    currentPage * RULES_PER_PAGE + RULES_PER_PAGE,
   )
 
   async function addRule(e: FormEvent) {
@@ -67,7 +81,10 @@ function RulesSection() {
           className={`${inputCls} w-56`}
           placeholder="Filter rules…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(0)
+          }}
         />
       </div>
 
@@ -112,7 +129,7 @@ function RulesSection() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filtered.slice(0, 300).map((r) => (
+            {visible.map((r) => (
               <tr key={r.id} className={r.enabled ? '' : 'opacity-40'}>
                 <td className="px-4 py-2 font-mono text-xs">{r.pattern}</td>
                 <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
@@ -143,9 +160,39 @@ function RulesSection() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-        {filtered.length} rule(s){search ? ' matching filter' : ''}.
-      </p>
+      <div className="mt-2 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+        <p>
+          {filtered.length} rule(s){search ? ' matching filter' : ''}
+          {filtered.length > 0 && (
+            <>
+              {' · showing '}
+              {currentPage * RULES_PER_PAGE + 1}–
+              {currentPage * RULES_PER_PAGE + visible.length}
+            </>
+          )}
+        </p>
+        {pageCount > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage === 0}
+              className={pagerCls}
+            >
+              Previous
+            </button>
+            <span>
+              Page {currentPage + 1} of {pageCount}
+            </span>
+            <button
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage >= pageCount - 1}
+              className={pagerCls}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
     </section>
   )
 }
